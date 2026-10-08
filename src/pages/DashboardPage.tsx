@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { PageId, UserRole, ApplicationRecord, ApplicationStatus } from '../types';
+import { PageId, UserRole, ApplicationRecord, ApplicationStatus, ApplicationRoleType } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { applicationsService } from '../services/applicationsService';
+import { applicationsService, isUUID } from '../services/applicationsService';
 import { messagesService } from '../services/messagesService';
 import { ApplicationChatThread } from '../components/ApplicationChatThread';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { 
   Building2, 
   Target, 
@@ -41,13 +42,151 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   };
 
   useEffect(() => {
-    if (user) {
-      const records = applicationsService.getUserApplications(user.id || user.email);
-      setUserApplications(records);
-      if (records.length > 0) {
-        setActiveChatAppId(records[0].id);
+    if (!user) return;
+
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const userId = user.id ? user.id.toLowerCase() : null;
+
+    // 1. Initial cached state
+    const cachedRecords = applicationsService.getUserApplications(user.id || user.email);
+    setUserApplications(cachedRecords);
+    if (cachedRecords.length > 0) {
+      setActiveChatAppId((prev) => prev || cachedRecords[0].id);
+    }
+    refreshUnreadCount();
+
+    // 2. Fetch latest status from Supabase table
+    const fetchLatestApplications = async () => {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          let query = supabase
+            .from('applications')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (user.id && isUUID(user.id)) {
+            query = query.or(`user_id.eq.${user.id},email.ilike.${userEmail}`);
+          } else if (userEmail) {
+            query = query.ilike('email', userEmail);
+          }
+
+          const { data, error } = await query;
+          if (!error && Array.isArray(data)) {
+            const mapped: ApplicationRecord[] = data
+              .filter((row: any) => !String(row.id).startsWith('app_seed_'))
+              .map((row: any) => ({
+                id: String(row.id),
+                user_id: row.user_id || null,
+                role_type: (row.role_type as ApplicationRoleType) || 'candidate',
+                full_name: row.full_name || user.fullName || 'Anonymous Applicant',
+                email: row.email || userEmail,
+                phone: row.phone || row.details?.phone || '',
+                details: typeof row.details === 'object' && row.details !== null ? row.details : {},
+                status: ((row.status || 'pending').toLowerCase() as ApplicationStatus),
+                notes: row.notes || '',
+                created_at: row.created_at || new Date().toISOString(),
+                updated_at: row.updated_at || undefined,
+              }));
+
+            if (mapped.length > 0) {
+              setUserApplications(mapped);
+              setActiveChatAppId((prev) => prev || mapped[0].id);
+
+              // Merge into local cache
+              try {
+                const currentCache = applicationsService.getLocalCache();
+                const mappedIds = new Set(mapped.map((m) => m.id));
+                const remaining = currentCache.filter((c) => !mappedIds.has(c.id));
+                applicationsService.saveLocalCache([...mapped, ...remaining]);
+              } catch {
+                // ignore cache write error
+              }
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Notice fetching candidate applications:', fetchErr);
+        }
       }
-      refreshUnreadCount();
+    };
+
+    fetchLatestApplications();
+
+    // 3. Supabase Realtime subscription: Listen for UPDATE & INSERT on public.applications
+    let channel: any = null;
+    if (isSupabaseConfigured && supabase) {
+      const channelIdentifier = `candidate_applications_${userId || userEmail.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+      channel = supabase
+        .channel(channelIdentifier)
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // Listen for UPDATE and INSERT
+            schema: 'public',
+            table: 'applications',
+          },
+          (payload) => {
+            const eventType = payload.eventType;
+            if ((eventType === 'UPDATE' || eventType === 'INSERT') && payload.new) {
+              const row = payload.new as any;
+              if (String(row.id).startsWith('app_seed_')) return;
+
+              const rowUserId = row.user_id ? String(row.user_id).toLowerCase() : null;
+              const rowEmail = row.email ? String(row.email).trim().toLowerCase() : '';
+
+              const isMine =
+                (userId && rowUserId === userId) ||
+                (userEmail && rowEmail === userEmail);
+
+              const updatedRecord: ApplicationRecord = {
+                id: String(row.id),
+                user_id: row.user_id || null,
+                role_type: (row.role_type as ApplicationRoleType) || 'candidate',
+                full_name: row.full_name || 'Anonymous Applicant',
+                email: row.email || '',
+                phone: row.phone || row.details?.phone || '',
+                details: typeof row.details === 'object' && row.details !== null ? row.details : {},
+                status: ((row.status || 'pending').toLowerCase() as ApplicationStatus),
+                notes: row.notes || '',
+                created_at: row.created_at || new Date().toISOString(),
+                updated_at: row.updated_at || undefined,
+              };
+
+              // Immediately update local React state so candidate sees the new status in real-time
+              setUserApplications((prev) => {
+                const exists = prev.some((a) => a.id === updatedRecord.id);
+                if (exists) {
+                  return prev.map((a) => (a.id === updatedRecord.id ? updatedRecord : a));
+                }
+                if (isMine) {
+                  return [updatedRecord, ...prev];
+                }
+                return prev;
+              });
+
+              if (isMine) {
+                setActiveChatAppId((prev) => prev || updatedRecord.id);
+              }
+
+              // Keep local cache synced
+              try {
+                const currentCache = applicationsService.getLocalCache();
+                let newCache: ApplicationRecord[];
+                if (eventType === 'INSERT') {
+                  newCache = [updatedRecord, ...currentCache.filter((c) => c.id !== updatedRecord.id)];
+                } else {
+                  newCache = currentCache.map((c) => (c.id === updatedRecord.id ? updatedRecord : c));
+                  if (!newCache.some((c) => c.id === updatedRecord.id) && isMine) {
+                    newCache.unshift(updatedRecord);
+                  }
+                }
+                applicationsService.saveLocalCache(newCache);
+              } catch {
+                // ignore
+              }
+            }
+          }
+        )
+        .subscribe();
     }
 
     const handleMessagesUpdate = () => {
@@ -55,8 +194,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
     };
 
     window.addEventListener('vox_direct_messages_updated', handleMessagesUpdate);
+
+    // Clean up channel and event listener
     return () => {
       window.removeEventListener('vox_direct_messages_updated', handleMessagesUpdate);
+      if (channel && supabase) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          // ignore cleanup error
+        }
+      }
     };
   }, [user]);
 
@@ -395,20 +543,42 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                       </div>
                     )}
 
-                    {activeChatAppId && (
-                      <ApplicationChatThread
-                        application={userApplications.find((a) => a.id === activeChatAppId)}
-                        applicationId={activeChatAppId}
-                        applicantName={user.fullName || user.email}
-                        applicantEmail={user.email}
-                        recipientUserId="admin"
-                        currentUserRole="applicant"
-                        currentUserEmail={user.email}
-                        title="Placement Team Direct Channel"
-                        subtitle="Vox Direct Admissions & Placement Matching"
-                        minHeight="340px"
-                      />
-                    )}
+                    {activeChatAppId && (() => {
+                      const activeApp = userApplications.find((a) => a.id === activeChatAppId);
+                      return (
+                        <div className="space-y-3">
+                          {activeApp && activeApp.status === 'approved' && (
+                            <div className="p-3 bg-[#F0FDF4] border border-[#22C55E]/40 rounded-[4px] flex items-center justify-between text-xs text-[#166534]">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-[#166534] shrink-0" />
+                                <span>
+                                  <strong>Application Approved:</strong> Direct candidate placement chat is unlocked. You can communicate in real time with our admissions desk.
+                                </span>
+                              </div>
+                              <span className="font-semibold px-2 py-0.5 bg-[#DCFCE7] rounded-[4px] text-[11px] shrink-0">
+                                Unlocked
+                              </span>
+                            </div>
+                          )}
+                          <ApplicationChatThread
+                            application={activeApp}
+                            applicationId={activeChatAppId}
+                            applicantName={user.fullName || user.email}
+                            applicantEmail={user.email}
+                            recipientUserId="admin"
+                            currentUserRole="applicant"
+                            currentUserEmail={user.email}
+                            title="Placement Team Direct Channel"
+                            subtitle={
+                              activeApp?.status === 'approved'
+                                ? 'Status: Approved · Direct line with Vox Direct Placement Team'
+                                : 'Vox Direct Admissions & Placement Matching'
+                            }
+                            minHeight="340px"
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
