@@ -7,17 +7,62 @@ interface AuthResponse {
   confirmationSent?: boolean;
 }
 
-export const ADMIN_EMAILS = [
+// Default administrative emails
+const DEFAULT_ADMIN_EMAILS = [
   'jc.dev.uk@gmail.com',
   'admin@vox-direct.com',
   'team@vox-direct.com',
   'director@vox-direct.com',
 ];
 
+/**
+ * Resolves all configured admin emails from environment variables (e.g., VITE_ADMIN_EMAILS / VITE_ADMIN_EMAIL)
+ * plus the default list.
+ *
+ * In Vercel, set:
+ *   VITE_ADMIN_EMAILS="jc.dev.uk@gmail.com,partner@example.com"
+ *   (or comma-separated emails)
+ */
+export const getAdminEmails = (): string[] => {
+  const envEmails: string[] = [];
+  try {
+    const raw =
+      (typeof import.meta !== 'undefined' &&
+        ((import.meta as any).env?.VITE_ADMIN_EMAILS ||
+         (import.meta as any).env?.VITE_ADMIN_EMAIL)) ||
+      '';
+    if (raw && typeof raw === 'string') {
+      raw
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+        .forEach((e) => {
+          if (!envEmails.includes(e)) envEmails.push(e);
+        });
+    }
+  } catch {
+    // ignore
+  }
+
+  const combined = [...DEFAULT_ADMIN_EMAILS.map((e) => e.toLowerCase())];
+  for (const email of envEmails) {
+    if (!combined.includes(email)) {
+      combined.push(email);
+    }
+  }
+  return combined;
+};
+
+export const ADMIN_EMAILS = getAdminEmails();
+
 export const checkIsAdmin = (user: AuthUser | null): boolean => {
   if (!user) return false;
+  // 1. Role explicitly marked as admin in profile or Supabase user_metadata
   if (user.role === 'admin' || user.isAdmin === true) return true;
-  return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === user.email?.trim().toLowerCase());
+  // 2. Email matches configured admin list (including VITE_ADMIN_EMAILS)
+  const allowed = getAdminEmails();
+  const userEmail = user.email?.trim().toLowerCase();
+  return Boolean(userEmail && allowed.includes(userEmail));
 };
 
 interface AuthContextType {

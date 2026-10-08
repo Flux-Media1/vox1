@@ -14,6 +14,7 @@ import { MessageRecord, MessageSenderRole, ApplicationRecord } from '../types';
 import { messagesService } from '../services/messagesService';
 import { isUUID } from '../services/applicationsService';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { getAdminEmails } from '../context/AuthContext';
 
 interface ApplicationChatThreadProps {
   application?: ApplicationRecord | {
@@ -287,18 +288,24 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
       } else {
         // Applicant replying to Admin
         try {
-          const adminEmail = 'jc.dev.uk@gmail.com';
-          await fetch('/api/send-message-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipientEmail: adminEmail,
-              recipientName: 'Admin',
-              senderRole: 'applicant',
-              messageSnippet: messageText.slice(0, 140),
-              dashboardUrl: 'https://vox-direct.com/admin',
-            }),
-          });
+          const configuredAdminEmails = getAdminEmails();
+          const primaryAdminEmail = configuredAdminEmails[0] || 'jc.dev.uk@gmail.com';
+
+          // Send notification to primary admin (and any additional admin recipients)
+          const adminPromises = configuredAdminEmails.slice(0, 3).map((adminEmail) =>
+            fetch('/api/send-message-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recipientEmail: adminEmail,
+                recipientName: 'Admin',
+                senderRole: 'applicant',
+                messageSnippet: messageText.slice(0, 140),
+                dashboardUrl: 'https://vox-direct.com/admin',
+              }),
+            })
+          );
+          await Promise.allSettled(adminPromises);
         } catch (emailErr) {
           console.warn('[Applicant Messaging] Non-blocking email alert exception:', emailErr);
         }
