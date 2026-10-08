@@ -364,4 +364,79 @@ export const applicationsService = {
         (a.email && a.email.toLowerCase() === search)
     );
   },
+
+  /**
+   * Subscribe to realtime INSERT and UPDATE events on the 'applications' table
+   */
+  subscribeToApplications(
+    onApplicationChange: (event: 'INSERT' | 'UPDATE', application: ApplicationRecord) => void
+  ): () => void {
+    if (!isSupabaseConfigured || !supabase) {
+      return () => {};
+    }
+
+    try {
+      const channel = supabase
+        .channel('applications_realtime_feed')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'applications',
+          },
+          (payload) => {
+            const eventType = payload.eventType;
+            if ((eventType === 'INSERT' || eventType === 'UPDATE') && payload.new) {
+              const row = payload.new as any;
+              // Ignore legacy seed items
+              if (String(row.id).startsWith('app_seed_')) return;
+
+              const record: ApplicationRecord = {
+                id: String(row.id),
+                user_id: row.user_id || null,
+                role_type: (row.role_type as ApplicationRoleType) || 'candidate',
+                full_name: row.full_name || 'Anonymous Applicant',
+                email: row.email || '',
+                phone: row.phone || row.details?.phone || '',
+                details: typeof row.details === 'object' && row.details !== null ? row.details : {},
+                status: ((row.status || 'pending').toLowerCase() as ApplicationStatus),
+                notes: row.notes || '',
+                created_at: row.created_at || new Date().toISOString(),
+                updated_at: row.updated_at || undefined,
+              };
+
+              // Keep local cache synced
+              const currentList = this.getLocalCache();
+              let updatedList: ApplicationRecord[];
+              if (eventType === 'INSERT') {
+                updatedList = [record, ...currentList.filter((a) => a.id !== record.id)];
+              } else {
+                updatedList = currentList.map((a) => (a.id === record.id ? record : a));
+                if (!updatedList.some((a) => a.id === record.id)) {
+                  updatedList.unshift(record);
+                }
+              }
+              this.saveLocalCache(updatedList);
+
+              onApplicationChange(eventType as 'INSERT' | 'UPDATE', record);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        try {
+          if (supabase) {
+            supabase.removeChannel(channel);
+          }
+        } catch {
+          // ignore cleanup errors
+        }
+      };
+    } catch (err) {
+      console.warn('Could not initialize Supabase applications realtime subscription:', err);
+      return () => {};
+    }
+  },
 };

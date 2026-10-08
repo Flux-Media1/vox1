@@ -31,6 +31,7 @@ import { PageId, ApplicationRecord, ApplicationRoleType, ApplicationStatus } fro
 import { useAuth, ADMIN_EMAILS } from '../context/AuthContext';
 import { applicationsService } from '../services/applicationsService';
 import { ApplicationChatThread } from '../components/ApplicationChatThread';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface AdminPortalPageProps {
   onNavigate: (page: PageId) => void;
@@ -100,6 +101,73 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({ onNavigate }) 
 
     if (isAdmin) {
       fetchApplications();
+
+      // Realtime subscription: Listen for INSERT and UPDATE on public.applications
+      if (isSupabaseConfigured && supabase) {
+        const channel = supabase
+          .channel('admin_applications_feed')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'applications',
+            },
+            (payload) => {
+              const eventType = payload.eventType;
+              if ((eventType === 'INSERT' || eventType === 'UPDATE') && payload.new) {
+                const row = payload.new as any;
+                if (String(row.id).startsWith('app_seed_')) return;
+
+                const appRecord: ApplicationRecord = {
+                  id: String(row.id),
+                  user_id: row.user_id || null,
+                  role_type: (row.role_type as ApplicationRoleType) || 'candidate',
+                  full_name: row.full_name || 'Anonymous Applicant',
+                  email: row.email || '',
+                  phone: row.phone || row.details?.phone || '',
+                  details: typeof row.details === 'object' && row.details !== null ? row.details : {},
+                  status: ((row.status || 'pending').toLowerCase() as ApplicationStatus),
+                  notes: row.notes || '',
+                  created_at: row.created_at || new Date().toISOString(),
+                  updated_at: row.updated_at || undefined,
+                };
+
+                setApplications((prev) => {
+                  if (eventType === 'INSERT') {
+                    // Check if already in list to avoid duplicates
+                    if (prev.some((a) => a.id === appRecord.id)) {
+                      return prev.map((a) => (a.id === appRecord.id ? appRecord : a));
+                    }
+                    return [appRecord, ...prev];
+                  } else {
+                    // UPDATE event
+                    return prev.map((a) => (a.id === appRecord.id ? appRecord : a));
+                  }
+                });
+
+                // If currently viewed in drawer, update selectedApplication state too
+                setSelectedApplication((prevSelected) => {
+                  if (prevSelected && prevSelected.id === appRecord.id) {
+                    return { ...prevSelected, ...appRecord };
+                  }
+                  return prevSelected;
+                });
+              }
+            }
+          )
+          .subscribe();
+
+        return () => {
+          try {
+            if (supabase) {
+              supabase.removeChannel(channel);
+            }
+          } catch {
+            // ignore cleanup error
+          }
+        };
+      }
     }
   }, [isAdmin]);
 
