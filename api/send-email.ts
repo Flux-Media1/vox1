@@ -228,6 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let adminSent = false;
     let submitterSent = false;
     let submitterError = '';
+    const submitterAddress = String(data.email || '').trim();
 
     if (smtpUser && smtpPass) {
       const transporter = nodemailer.createTransport({
@@ -250,7 +251,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       adminSent = true;
 
       // 2. Confirmation to the person who filled in the form
-      const submitterAddress = String(data.email || '').trim();
       if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(submitterAddress)) {
         try {
           const confirmation = formatSubmitterEmail(type, data);
@@ -279,7 +279,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isLive: adminSent,
       provider: adminSent ? 'gmail' : 'simulated',
       deliveredToAdmin: adminSent ? adminEmail : null,
-      deliveredToSubmitter: submitterSent,
+      deliveredToSubmitter: submitterSent ? submitterAddress : '',
+      submitterSent,
       submitterError: submitterError || undefined,
     });
   } catch (error: any) {
