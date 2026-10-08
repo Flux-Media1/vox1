@@ -3,7 +3,27 @@
  * Plain British English types for form submissions and agency state
  */
 
-export type PageId = 'home' | 'offer-owners' | 'offer-seekers' | 'contact';
+export type PageId =
+  | 'home'
+  | 'offer-owners'
+  | 'offer-seekers'
+  | 'contact'
+  | 'privacy'
+  | 'terms'
+  | 'login'
+  | 'signup'
+  | 'dashboard'
+  | '404';
+
+export type UserRole = 'owner' | 'seeker';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName?: string;
+  role: UserRole;
+  createdAt?: string;
+}
 
 export type RoleNeeded = 'setter' | 'closer' | 'both';
 
@@ -20,6 +40,7 @@ export interface OfferOwnerSubmission {
   commissionStructure: string;
   expectedVolume: string;
   message?: string;
+  hpField?: string;
 }
 
 export interface OfferSeekerSubmission {
@@ -36,6 +57,7 @@ export interface OfferSeekerSubmission {
   portfolioOrVideoLink: string;
   message?: string;
   gdprConsent: boolean;
+  hpField?: string;
 }
 
 export interface ContactSubmission {
@@ -45,4 +67,5 @@ export interface ContactSubmission {
   email: string;
   subject?: string;
   message: string;
+  hpField?: string;
 }

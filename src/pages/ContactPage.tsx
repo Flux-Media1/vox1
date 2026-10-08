@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { Mail, Check, Copy, CheckCircle2 } from 'lucide-react';
+import { PageId } from '../types';
 import { contactContent, siteConfig } from '../data/content';
 import { submissionService } from '../services/submissionService';
 
-export const ContactPage: React.FC = () => {
+interface ContactPageProps {
+  onNavigate?: (page: PageId) => void;
+}
+
+export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -11,6 +16,7 @@ export const ContactPage: React.FC = () => {
     message: '',
   });
 
+  const [hpField, setHpField] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
@@ -52,6 +58,7 @@ export const ContactPage: React.FC = () => {
         email: formData.email.trim(),
         subject: formData.subject.trim() || undefined,
         message: formData.message.trim(),
+        hpField: hpField || undefined,
       });
 
       setDeliveredEmails({
@@ -66,6 +73,7 @@ export const ContactPage: React.FC = () => {
         subject: '',
         message: '',
       });
+      setHpField('');
       setErrors({});
     } catch (err) {
       console.error(err);
@@ -251,11 +259,42 @@ export const ContactPage: React.FC = () => {
                     {errors.message && <p className="mt-1 text-xs text-rose-600">{errors.message}</p>}
                   </div>
 
+                  {/* Honeypot spam protection (hidden off-screen for real users) */}
+                  <div className="absolute -left-[9999px] top-auto opacity-0 w-px h-px pointer-events-none" aria-hidden="true">
+                    <label htmlFor="contact-hpField">Leave this field blank</label>
+                    <input
+                      id="contact-hpField"
+                      type="text"
+                      name="hpField"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={hpField}
+                      onChange={(e) => setHpField(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Consent Notice */}
+                  <p className="text-xs text-[#8A9A92] leading-relaxed pt-2">
+                    By submitting this form you agree that Vox Direct may use your details to respond to your enquiry and, where relevant, introduce you to suitable parties, as described in our{' '}
+                    <a
+                      href="/privacy"
+                      onClick={(e) => {
+                        if (onNavigate) {
+                          e.preventDefault();
+                          onNavigate('privacy');
+                        }
+                      }}
+                      className="text-[#B5632F] underline hover:text-[#9B5325]"
+                    >
+                      Privacy Policy
+                    </a>.
+                  </p>
+
                   <div className="pt-2">
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="btn-primary-light w-full disabled:opacity-50"
+                      className="btn-primary-light w-full disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? 'Sending...' : 'Send Message'}
                     </button>

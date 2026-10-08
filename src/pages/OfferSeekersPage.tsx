@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, ArrowRight, UserCheck } from 'lucide-react';
-import { RoleNeeded } from '../types';
+import { RoleNeeded, PageId } from '../types';
 import { offerSeekersContent } from '../data/content';
 import { submissionService } from '../services/submissionService';
+import { useAuth } from '../context/AuthContext';
 
 interface OfferSeekersPageProps {
   onNavigateToOwners: () => void;
+  onNavigate?: (page: PageId) => void;
 }
 
-export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateToOwners }) => {
+export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateToOwners, onNavigate }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
+    fullName: user?.fullName || '',
+    email: user?.email || '',
     phone: '',
     locationAndTimezone: '',
     role: 'both' as RoleNeeded,
@@ -23,6 +26,18 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
     gdprConsent: false,
   });
 
+  // Pre-fill user information when user profile loads
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || user.email || '',
+        fullName: prev.fullName || user.fullName || '',
+      }));
+    }
+  }, [user]);
+
+  const [hpField, setHpField] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
@@ -82,6 +97,7 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
         portfolioOrVideoLink: formData.portfolioOrVideoLink.trim(),
         message: formData.message.trim() || undefined,
         gdprConsent: formData.gdprConsent,
+        hpField: hpField || undefined,
       });
 
       setDeliveredEmails({
@@ -103,6 +119,7 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
         message: '',
         gdprConsent: false,
       });
+      setHpField('');
       setErrors({});
     } catch (err) {
       console.error('Submission error:', err);
@@ -188,6 +205,20 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="space-y-6">
+                {user && (
+                  <div className="p-3.5 rounded bg-[#F1EDE5] border border-[#DDD7CB] flex flex-wrap items-center justify-between gap-2 text-xs text-[#4A4A44]">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-[#B5632F]" />
+                      <span>
+                        Verified Account: <strong className="text-[#1A1A18] font-mono">{user.email}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-[#B5632F] uppercase tracking-wider bg-[#FAF3EE] px-2 py-0.5 rounded border border-[#B5632F]/20">
+                      Candidate Session
+                    </span>
+                  </div>
+                )}
+
                 {/* Row 1: Contact Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
@@ -396,24 +427,68 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
                       className="mt-0.5 h-4 w-4 rounded text-[#B5632F] focus:ring-[#B5632F]"
                     />
                     <span className="text-xs text-[#4A4A44] leading-relaxed">
-                      I agree that Vox Direct may store my candidate details and contact me regarding verified offer placement opportunities in accordance with the Privacy Policy.
+                      I agree that Vox Direct may store my candidate details and contact me regarding verified offer placement opportunities in accordance with the{' '}
+                      <a
+                        href="/privacy"
+                        onClick={(e) => {
+                          if (onNavigate) {
+                            e.preventDefault();
+                            onNavigate('privacy');
+                          }
+                        }}
+                        className="text-[#B5632F] underline hover:text-[#9B5325]"
+                      >
+                        Privacy Policy
+                      </a>.
                     </span>
                   </label>
                   {errors.gdprConsent && <p className="mt-2 text-xs text-rose-600">{errors.gdprConsent}</p>}
                 </div>
 
-                {/* Submit CTA: Primary button */}
-                <div className="pt-6 border-t border-[#DDD7CB] flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="btn-primary-light w-full sm:w-auto disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Submitting Application...' : 'Apply for Placement'}
-                  </button>
-                  <span className="text-xs text-[#4A4A44] font-mono">
-                    Strictly confidential candidate matching
-                  </span>
+                {/* Honeypot spam protection (hidden off-screen for real users) */}
+                <div className="absolute -left-[9999px] top-auto opacity-0 w-px h-px pointer-events-none" aria-hidden="true">
+                  <label htmlFor="seeker-hpField">Leave this field blank</label>
+                  <input
+                    id="seeker-hpField"
+                    type="text"
+                    name="hpField"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={hpField}
+                    onChange={(e) => setHpField(e.target.value)}
+                  />
+                </div>
+
+                {/* Submit CTA & Consent Notice */}
+                <div className="pt-6 border-t border-[#DDD7CB] space-y-4">
+                  <p className="text-xs text-[#8A9A92] leading-relaxed">
+                    By submitting this form you agree that Vox Direct may use your details to respond to your enquiry and, where relevant, introduce you to suitable parties, as described in our{' '}
+                    <a
+                      href="/privacy"
+                      onClick={(e) => {
+                        if (onNavigate) {
+                          e.preventDefault();
+                          onNavigate('privacy');
+                        }
+                      }}
+                      className="text-[#B5632F] underline hover:text-[#9B5325]"
+                    >
+                      Privacy Policy
+                    </a>.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="btn-primary-light w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? 'Submitting Application...' : 'Apply for Placement'}
+                    </button>
+                    <span className="text-xs text-[#4A4A44] font-mono">
+                      Strictly confidential candidate matching
+                    </span>
+                  </div>
                 </div>
               </form>
             )}

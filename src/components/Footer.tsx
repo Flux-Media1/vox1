@@ -18,13 +18,9 @@ const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = 'h-4 w-4' 
 
 interface FooterProps {
   onNavigate: (page: PageId) => void;
-  onOpenLegal: (type: 'privacy' | 'terms') => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({
-  onNavigate,
-  onOpenLegal,
-}) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
     <footer className="border-t border-[#2A453D] bg-[#0F2A24] text-[#B9C4BE]">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 md:py-20">
@@ -36,9 +32,6 @@ export const Footer: React.FC<FooterProps> = ({
             </span>
             <p className="text-[15px] text-[#B9C4BE] max-w-md leading-[1.7]">
               {siteConfig.oneLineDescription}
-            </p>
-            <p className="text-xs text-[#8A9A92] uppercase tracking-wider font-mono">
-              Registered in the United Kingdom · Sales Placement Agency
             </p>
           </div>
 
@@ -83,7 +76,7 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Direct Contact & Channels */}
+          {/* Direct Contact & Social */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#F4F1EA] mb-4">
               Direct Contact
@@ -129,13 +122,13 @@ export const Footer: React.FC<FooterProps> = ({
 
           <div className="flex items-center gap-6">
             <button
-              onClick={() => onOpenLegal('privacy')}
+              onClick={() => onNavigate('privacy')}
               className="hover:text-[#D4895A] transition-colors cursor-pointer"
             >
               Privacy Policy
             </button>
             <button
-              onClick={() => onOpenLegal('terms')}
+              onClick={() => onNavigate('terms')}
               className="hover:text-[#D4895A] transition-colors cursor-pointer"
             >
               Terms of Service

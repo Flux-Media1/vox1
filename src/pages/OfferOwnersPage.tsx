@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
-import { CheckCircle2, ArrowRight, Building2 } from 'lucide-react';
-import { RoleNeeded } from '../types';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, ArrowRight, Building2, UserCheck } from 'lucide-react';
+import { RoleNeeded, PageId } from '../types';
 import { offerOwnersContent } from '../data/content';
 import { submissionService } from '../services/submissionService';
+import { useAuth } from '../context/AuthContext';
 
 interface OfferOwnersPageProps {
   onNavigateToSeekers: () => void;
+  onNavigate?: (page: PageId) => void;
 }
 
-export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSeekers }) => {
+export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSeekers, onNavigate }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
+    fullName: user?.fullName || '',
+    email: user?.email || '',
     phone: '',
     company: '',
     website: '',
@@ -22,6 +25,18 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
     message: '',
   });
 
+  // Pre-fill user information when user profile loads
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || user.email || '',
+        fullName: prev.fullName || user.fullName || '',
+      }));
+    }
+  }, [user]);
+
+  const [hpField, setHpField] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
@@ -66,6 +81,7 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
         commissionStructure: formData.commissionStructure.trim(),
         expectedVolume: formData.expectedVolume.trim(),
         message: formData.message.trim() || undefined,
+        hpField: hpField || undefined,
       });
 
       setDeliveredEmails({
@@ -86,6 +102,7 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
         expectedVolume: '',
         message: '',
       });
+      setHpField('');
       setErrors({});
     } catch (err) {
       console.error('Submission error:', err);
@@ -171,6 +188,20 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="space-y-6">
+                {user && (
+                  <div className="p-3.5 rounded bg-[#F1EDE5] border border-[#DDD7CB] flex flex-wrap items-center justify-between gap-2 text-xs text-[#4A4A44]">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-[#B5632F]" />
+                      <span>
+                        Verified Account: <strong className="text-[#1A1A18] font-mono">{user.email}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-[#B5632F] uppercase tracking-wider bg-[#FAF3EE] px-2 py-0.5 rounded border border-[#B5632F]/20">
+                      Offer Owner Session
+                    </span>
+                  </div>
+                )}
+
                 {/* Row 1: Contact Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
@@ -366,18 +397,50 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
                   />
                 </div>
 
-                {/* Submit CTA */}
-                <div className="pt-6 border-t border-[#DDD7CB] flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="btn-primary-light w-full sm:w-auto disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Submitting Details...' : 'Submit Offer Details'}
-                  </button>
-                  <span className="text-xs text-[#4A4A44] font-mono">
-                    Direct notification to placement desk
-                  </span>
+                {/* Honeypot spam protection (hidden off-screen for real users) */}
+                <div className="absolute -left-[9999px] top-auto opacity-0 w-px h-px pointer-events-none" aria-hidden="true">
+                  <label htmlFor="owner-hpField">Leave this field blank</label>
+                  <input
+                    id="owner-hpField"
+                    type="text"
+                    name="hpField"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={hpField}
+                    onChange={(e) => setHpField(e.target.value)}
+                  />
+                </div>
+
+                {/* Submit CTA & Consent Notice */}
+                <div className="pt-6 border-t border-[#DDD7CB] space-y-4">
+                  <p className="text-xs text-[#8A9A92] leading-relaxed">
+                    By submitting this form you agree that Vox Direct may use your details to respond to your enquiry and, where relevant, introduce you to suitable parties, as described in our{' '}
+                    <a
+                      href="/privacy"
+                      onClick={(e) => {
+                        if (onNavigate) {
+                          e.preventDefault();
+                          onNavigate('privacy');
+                        }
+                      }}
+                      className="text-[#B5632F] underline hover:text-[#9B5325]"
+                    >
+                      Privacy Policy
+                    </a>.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="btn-primary-light w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? 'Submitting Details...' : 'Submit Offer Details'}
+                    </button>
+                    <span className="text-xs text-[#4A4A44] font-mono">
+                      Direct notification to placement desk
+                    </span>
+                  </div>
                 </div>
               </form>
             )}

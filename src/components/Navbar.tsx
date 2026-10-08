@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogOut, User, LayoutDashboard } from 'lucide-react';
 import { PageId } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   currentPage: PageId;
@@ -9,6 +10,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   const navLinks: { id: PageId; label: string }[] = [
     { id: 'home', label: 'Home' },
@@ -17,8 +19,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
     { id: 'contact', label: 'Contact' },
   ];
 
+  if (user) {
+    navLinks.push({ id: 'dashboard', label: 'Dashboard' });
+  }
+
   const handleLinkClick = (page: PageId) => {
     onNavigate(page);
+    setMobileMenuOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    onNavigate('home');
     setMobileMenuOpen(false);
   };
 
@@ -38,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
         </div>
 
         {/* Desktop Nav Links: Inter 500, 15px, #1A1A18, 2px copper underline for active */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-7">
           {navLinks.map((link) => {
             const isActive = currentPage === link.id;
             return (
@@ -63,25 +75,64 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
           })}
         </nav>
 
-        {/* Desktop Action Buttons: Consistent hierarchy site-wide */}
-        {/* "I Have an Offer" is Secondary; "I'm Looking for an Offer" is Primary */}
+        {/* Desktop Action & Auth State */}
         <div className="hidden lg:flex items-center gap-3">
-          <button
-            onClick={() => handleLinkClick('offer-owners')}
-            className="btn-secondary-light !py-2.5 !px-4.5 text-[14px]"
-          >
-            I Have an Offer
-          </button>
-          <button
-            onClick={() => handleLinkClick('offer-seekers')}
-            className="btn-primary-light !py-2.5 !px-4.5 text-[14px]"
-          >
-            I'm Looking for an Offer
-          </button>
+          {user ? (
+            /* Authenticated state: user indicator + Log Out button */
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleLinkClick('dashboard')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded border border-[#DDD7CB] bg-[#F1EDE5] text-xs text-[#1A1A18] hover:border-[#B5632F] transition-colors cursor-pointer"
+                title={user.email}
+              >
+                <User className="w-3.5 h-3.5 text-[#B5632F]" />
+                <span className="max-w-[130px] truncate font-mono text-[11px]">
+                  {user.email}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-[#B5632F] bg-[#FAF3EE] px-1 py-0.5 rounded border border-[#B5632F]/20">
+                  {user.role === 'owner' ? 'Owner' : 'Candidate'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="btn-secondary-light !py-2 !px-3.5 text-[13px] flex items-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            </div>
+          ) : (
+            /* Unauthenticated state: "Sign In" text link + copper "Get Started" CTA button */
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => handleLinkClick('login')}
+                className="text-[14px] font-medium text-[#4A4A44] hover:text-[#B5632F] transition-colors cursor-pointer"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => handleLinkClick('signup')}
+                className="btn-primary-dark !py-2.5 !px-5 text-[14px]"
+              >
+                Get Started
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Mobile menu trigger */}
         <div className="flex md:hidden items-center gap-2">
+          {user && (
+            <button
+              onClick={() => handleLinkClick('dashboard')}
+              className="p-1.5 text-xs text-[#1A1A18] bg-[#F1EDE5] rounded border border-[#DDD7CB] flex items-center gap-1 mr-1"
+            >
+              <User className="w-3.5 h-3.5 text-[#B5632F]" />
+              <span className="text-[11px] font-mono max-w-[80px] truncate">{user.email.split('@')[0]}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -116,18 +167,46 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
           </nav>
 
           <div className="mt-5 flex flex-col gap-2.5 border-t border-[#DDD7CB] pt-4">
-            <button
-              onClick={() => handleLinkClick('offer-owners')}
-              className="btn-secondary-light w-full py-3 text-center"
-            >
-              I Have an Offer
-            </button>
-            <button
-              onClick={() => handleLinkClick('offer-seekers')}
-              className="btn-primary-light w-full py-3 text-center"
-            >
-              I'm Looking for an Offer
-            </button>
+            {user ? (
+              <>
+                <div className="px-3 py-2 bg-[#F1EDE5] rounded border border-[#DDD7CB] text-xs space-y-1">
+                  <div className="text-[#8A9A92] uppercase tracking-wider text-[10px]">Signed In As</div>
+                  <div className="font-mono text-[#1A1A18] truncate">{user.email}</div>
+                  <div className="text-[#B5632F] font-semibold text-[11px]">
+                    Role: {user.role === 'owner' ? 'Offer Owner' : 'Setter / Closer'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleLinkClick('dashboard')}
+                  className="btn-primary-light w-full py-2.5 text-center text-sm flex items-center justify-center gap-2"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="btn-secondary-light w-full py-2.5 text-center text-sm flex items-center justify-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleLinkClick('login')}
+                  className="btn-secondary-light w-full py-2.5 text-center text-sm"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => handleLinkClick('signup')}
+                  className="btn-primary-dark w-full py-2.5 text-center text-sm"
+                >
+                  Get Started
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
