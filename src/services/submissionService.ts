@@ -27,15 +27,106 @@ export interface DispatchResult<T> {
 }
 
 /**
- * Sends formatted email notification via the server-side /api/send-email endpoint
- * Dispatches BOTH:
- * 1. Confirmation email to the submitter's email address
- * 2. Lead alert email to the site owner (jc.dev.uk@gmail.com)
+ * Sends submission directly via Web3Forms (for static hosts like GitHub Pages
+ * where no backend Node.js server is available).
+ */
+async function sendViaWeb3Forms(
+  type: 'offer_owner' | 'offer_seeker' | 'contact',
+  data: Record<string, unknown>,
+  accessKey: string
+): Promise<{ success: boolean; isLive: boolean; provider: string; deliveredToAdmin: string; deliveredToSubmitter: string }> {
+  try {
+    let subject = `[Vox Direct Alert] New Submission`;
+    const payload: Record<string, string> = {
+      access_key: accessKey,
+      from_name: 'Vox Direct Notifications',
+      replyto: String(data.email || siteConfig.notificationEmail),
+    };
+
+    if (type === 'offer_owner') {
+      subject = `[Vox Direct Alert] New Offer Owner Lead: ${data.fullName || 'Lead'} (${data.company || 'Business'})`;
+      payload.subject = subject;
+      payload['Submission Type'] = 'Offer Owner Lead';
+      payload['Full Name'] = String(data.fullName || '');
+      payload['Email'] = String(data.email || '');
+      payload['Phone'] = String(data.phone || '');
+      payload['Company'] = String(data.company || '');
+      if (data.website) payload['Website'] = String(data.website);
+      payload['Role Needed'] = String(data.roleNeeded || '');
+      payload['Commission Structure'] = String(data.commissionStructure || '');
+      payload['Expected Volume'] = String(data.expectedVolume || '');
+      payload['Offer Description'] = String(data.offerDescription || '');
+      if (data.message) payload['Additional Notes'] = String(data.message);
+    } else if (type === 'offer_seeker') {
+      subject = `[Vox Direct Alert] New Candidate Application: ${data.fullName || 'Applicant'} (${data.role || 'Role'})`;
+      payload.subject = subject;
+      payload['Submission Type'] = 'Sales Candidate Application';
+      payload['Full Name'] = String(data.fullName || '');
+      payload['Email'] = String(data.email || '');
+      payload['Phone'] = String(data.phone || '');
+      payload['Location & Timezone'] = String(data.locationAndTimezone || '');
+      payload['Role Applying For'] = String(data.role || '');
+      payload['Video / Portfolio Link'] = String(data.portfolioOrVideoLink || '');
+      payload['Sales Experience'] = String(data.experience || '');
+      payload['Niches Worked In'] = String(data.nichesWorkedIn || '');
+      payload['Tools Used'] = String(data.toolsUsed || '');
+      payload['GDPR Consent'] = data.gdprConsent ? 'Confirmed' : 'No';
+      if (data.message) payload['Candidate Message'] = String(data.message);
+    } else {
+      subject = `[Vox Direct Alert] New Contact Enquiry: ${data.fullName || 'Contact'}`;
+      payload.subject = subject;
+      payload['Submission Type'] = 'Contact Form Message';
+      payload['Full Name'] = String(data.fullName || '');
+      payload['Email'] = String(data.email || '');
+      if (data.phone) payload['Phone'] = String(data.phone);
+      if (data.subject) payload['Subject'] = String(data.subject);
+      payload['Message'] = String(data.message || '');
+    }
+
+    const res = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success) {
+        return {
+          success: true,
+          isLive: true,
+          provider: 'web3forms',
+          deliveredToAdmin: siteConfig.notificationEmail,
+          deliveredToSubmitter: String(data.email || ''),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Web3Forms fallback dispatch encountered an error:', err);
+  }
+
+  return {
+    success: false,
+    isLive: false,
+    provider: 'failed',
+    deliveredToAdmin: siteConfig.notificationEmail,
+    deliveredToSubmitter: '',
+  };
+}
+
+/**
+ * Sends formatted email notification.
+ * 1. Attempts the server-side /api/send-email endpoint (active on Node.js / Vercel serverless / dev server).
+ * 2. If the endpoint is unavailable (e.g. 404 on static GitHub Pages), automatically uses Web3Forms client-side fallback.
  */
 async function sendEmailNotification(
   type: 'offer_owner' | 'offer_seeker' | 'contact',
   data: unknown
 ): Promise<{ success: boolean; isLive: boolean; provider: string; deliveredToAdmin: string; deliveredToSubmitter: string }> {
+  // 1. Try server-side /api/send-email first
   try {
     const res = await fetch('/api/send-email', {
       method: 'POST',
@@ -59,23 +150,29 @@ async function sendEmailNotification(
         deliveredToSubmitter: json.deliveredToSubmitter || '',
       };
     }
-    return {
-      success: false,
-      isLive: false,
-      provider: 'failed',
-      deliveredToAdmin: siteConfig.notificationEmail,
-      deliveredToSubmitter: '',
-    };
   } catch (err) {
-    console.warn('Network error attempting /api/send-email dispatch:', err);
-    return {
-      success: false,
-      isLive: false,
-      provider: 'failed',
-      deliveredToAdmin: siteConfig.notificationEmail,
-      deliveredToSubmitter: '',
-    };
+    console.warn('Backend /api/send-email is unreachable (expected on static GitHub Pages hosting):', err);
   }
+
+  // 2. Client-side fallback for static hosting (GitHub Pages linked with custom domain)
+  const web3FormsKey =
+    siteConfig.web3FormsAccessKey ||
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_WEB3FORMS_ACCESS_KEY);
+
+  if (web3FormsKey && typeof data === 'object' && data !== null) {
+    const w3Result = await sendViaWeb3Forms(type, data as Record<string, unknown>, web3FormsKey);
+    if (w3Result.success) {
+      return w3Result;
+    }
+  }
+
+  return {
+    success: false,
+    isLive: false,
+    provider: 'static_pending_key',
+    deliveredToAdmin: siteConfig.notificationEmail,
+    deliveredToSubmitter: '',
+  };
 }
 
 /**

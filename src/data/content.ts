@@ -14,6 +14,9 @@ export const siteConfig = {
   whatsappNumber: '07488376951',
   whatsappUrl: 'https://wa.me/447488376951',
   location: 'United Kingdom',
+  // Web3Forms Access Key (Enables instant direct email delivery on static GitHub Pages / GoDaddy hosting):
+  // Get your free key in 10 seconds at https://web3forms.com by entering jc.dev.uk@gmail.com
+  web3FormsAccessKey: '',
 };
 
 export const homeContent = {

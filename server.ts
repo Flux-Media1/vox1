@@ -362,18 +362,20 @@ async function dispatchEmail(params: {
   let deliveryError: string | undefined;
 
   // 1. Try Gmail / SMTP first if configured
-  if (!sent && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  const smtpUser = process.env.SMTP_USER || 'jc.dev.uk@gmail.com';
+  const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  if (!sent && smtpUser && rawPass) {
     try {
       const isGmail =
         process.env.SMTP_HOST?.includes('gmail') ||
-        process.env.SMTP_USER?.includes('@gmail.com');
-      const cleanPass = process.env.SMTP_PASS.replace(/\s+/g, '');
+        smtpUser.includes('@gmail.com');
+      const cleanPass = rawPass.replace(/\s+/g, '');
 
       const transporter = isGmail
         ? nodemailer.createTransport({
             service: 'gmail',
             auth: {
-              user: process.env.SMTP_USER,
+              user: smtpUser,
               pass: cleanPass,
             },
           })
@@ -382,7 +384,7 @@ async function dispatchEmail(params: {
             port: Number(process.env.SMTP_PORT) || 465,
             secure: Number(process.env.SMTP_PORT) === 465,
             auth: {
-              user: process.env.SMTP_USER,
+              user: smtpUser,
               pass: cleanPass,
             },
           });
