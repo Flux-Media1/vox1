@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Instagram, Database } from 'lucide-react';
+import { Mail, Instagram } from 'lucide-react';
 import { PageId } from '../types';
 import { siteConfig } from '../data/content';
 
@@ -19,13 +19,11 @@ const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = 'h-4 w-4' 
 interface FooterProps {
   onNavigate: (page: PageId) => void;
   onOpenLegal: (type: 'privacy' | 'terms') => void;
-  onOpenSubmissions: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
   onNavigate,
   onOpenLegal,
-  onOpenSubmissions,
 }) => {
   return (
     <footer className="border-t border-[#2A453D] bg-[#0F2A24] text-[#B9C4BE]">
@@ -141,14 +139,6 @@ export const Footer: React.FC<FooterProps> = ({
               className="hover:text-[#D4895A] transition-colors cursor-pointer"
             >
               Terms of Service
-            </button>
-            <button
-              onClick={onOpenSubmissions}
-              title="Inspect locally saved form submissions"
-              className="inline-flex items-center gap-1.5 text-[#8A9A92] hover:text-[#D4895A] transition-colors cursor-pointer"
-            >
-              <Database className="h-3.5 w-3.5 stroke-[1.5]" />
-              <span>Submissions ({siteConfig.brandName})</span>
             </button>
           </div>
         </div>

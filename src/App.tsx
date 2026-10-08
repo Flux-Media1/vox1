@@ -8,7 +8,6 @@ import { PageId } from './types';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LegalModal } from './components/LegalModal';
-import { SubmissionsViewer } from './components/SubmissionsViewer';
 import { HomePage } from './pages/HomePage';
 import { OfferOwnersPage } from './pages/OfferOwnersPage';
 import { OfferSeekersPage } from './pages/OfferSeekersPage';
@@ -17,7 +16,6 @@ import { ContactPage } from './pages/ContactPage';
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>('home');
   const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | null>(null);
-  const [submissionsViewerOpen, setSubmissionsViewerOpen] = useState(false);
 
   // Scroll to top whenever page changes
   useEffect(() => {
@@ -63,18 +61,12 @@ export default function App() {
       <Footer
         onNavigate={navigateTo}
         onOpenLegal={(type) => setLegalModalType(type)}
-        onOpenSubmissions={() => setSubmissionsViewerOpen(true)}
       />
 
       {/* Modals */}
       <LegalModal
         type={legalModalType}
         onClose={() => setLegalModalType(null)}
-      />
-
-      <SubmissionsViewer
-        isOpen={submissionsViewerOpen}
-        onClose={() => setSubmissionsViewerOpen(false)}
       />
     </div>
   );

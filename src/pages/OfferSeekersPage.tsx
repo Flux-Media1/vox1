@@ -172,21 +172,10 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
                     <strong className="text-[#1A1A18]">{deliveredEmails.admin}</strong>.
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-[15px] text-[#4A4A44] max-w-md mx-auto leading-relaxed">
-                      Your candidate application has been recorded and formatted for{' '}
-                      <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong> and{' '}
-                      <strong className="text-[#1A1A18]">{deliveredEmails.admin}</strong>.
-                    </p>
-                    <div className="border border-[#DDD7CB] bg-white p-3.5 text-xs text-[#4A4A44] text-left max-w-md mx-auto space-y-1 rounded">
-                      <p className="font-semibold text-[#1A1A18]">
-                        Notice: Email Dispatch Logged
-                      </p>
-                      <p className="text-[12px] leading-relaxed">
-                        Your test submission was safely logged and can be viewed in the Submissions inspector in the footer.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-[15px] text-[#4A4A44] max-w-md mx-auto leading-relaxed">
+                    Your candidate application has been safely received for{' '}
+                    <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong>. Our placement team will review your background and reach out soon.
+                  </p>
                 )}
                 <div className="pt-2">
                   <button

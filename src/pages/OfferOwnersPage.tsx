@@ -155,21 +155,10 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
                     <strong className="text-[#1A1A18]">{deliveredEmails.admin}</strong>.
                   </p>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-[15px] text-[#4A4A44] max-w-md mx-auto leading-relaxed">
-                      Your offer requirements have been safely recorded and formatted for{' '}
-                      <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong> and{' '}
-                      <strong className="text-[#1A1A18]">{deliveredEmails.admin}</strong>.
-                    </p>
-                    <div className="border border-[#DDD7CB] bg-white p-3.5 text-xs text-[#4A4A44] text-left max-w-md mx-auto space-y-1 rounded">
-                      <p className="font-semibold text-[#1A1A18]">
-                        Notice: Email Dispatch Logged
-                      </p>
-                      <p className="text-[12px] leading-relaxed">
-                        Your test email was generated and saved to the Submissions inspector in the footer.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="text-[15px] text-[#4A4A44] max-w-md mx-auto leading-relaxed">
+                    Your offer requirements have been safely received for{' '}
+                    <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong>. Our team will review your requirements and be in touch shortly.
+                  </p>
                 )}
                 <div className="pt-2">
                   <button

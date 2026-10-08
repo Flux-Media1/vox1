@@ -170,21 +170,10 @@ export const ContactPage: React.FC = () => {
                       <strong className="text-[#1A1A18]">{deliveredEmails.admin}</strong>.
                     </p>
                   ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs text-[#4A4A44] max-w-sm mx-auto leading-relaxed">
-                        Your message has been safely recorded and formatted for{' '}
-                        <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong> and{' '}
-                        <strong className="text-[#1A1A18]">{deliveredEmails.admin}</strong>.
-                      </p>
-                      <div className="border border-[#DDD7CB] bg-white p-3 text-xs text-[#4A4A44] text-left max-w-sm mx-auto space-y-1 rounded">
-                        <p className="font-semibold text-[#1A1A18] text-[11px]">
-                          Notice: Email Dispatch Logged
-                        </p>
-                        <p className="text-[11px] leading-relaxed">
-                          Your test email is logged in the footer under <strong>Submissions</strong>.
-                        </p>
-                      </div>
-                    </div>
+                    <p className="text-xs text-[#4A4A44] max-w-sm mx-auto leading-relaxed">
+                      Your message has been safely received for{' '}
+                      <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong>. We will get back to you promptly.
+                    </p>
                   )}
                   <div className="pt-2">
                     <button
