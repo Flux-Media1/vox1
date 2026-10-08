@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+
+  --color-paper: #FAF8F4;
+  --color-paper-alt: #F1EDE5;
+  --color-ink-green: #0F2A24;
+  --color-ink-green-dark: #091C18;
+
+  --color-text-heading: #1A1A18;
+  --color-text-body: #4A4A44;
+
+  --color-text-dark-head: #F4F1EA;
+  --color-text-dark-body: #B9C4BE;
+
+  --color-copper: #B5632F;
+  --color-copper-dark: #9B5325;
+  --color-copper-light: #D4895A;
+
+  --color-border-light: #DDD7CB;
+  --color-border-dark: #2A453D;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: #4A4A44;
+    background-color: #FAF8F4;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    color: #1A1A18;
+    font-weight: 500;
+  }
+}
+
+/* Restrained Editorial Buttons (4px radius, Inter 600, 15px, 14px 26px padding, NO gradients, NO shadows) */
+
+/* Primary on Dark Hero: Solid Copper #B5632F with White text */
+.btn-primary-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #B5632F;
+  color: #FFFFFF;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 26px;
+  border-radius: 4px;
+  border: 1px solid #B5632F;
+  transition: background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.btn-primary-dark:hover {
+  background-color: #9B5325;
+  border-color: #9B5325;
+}
+
+/* Primary on Light Sections: Solid Ink Green #0F2A24 with #F4F1EA text */
+.btn-primary-light {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0F2A24;
+  color: #F4F1EA;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 26px;
+  border-radius: 4px;
+  border: 1px solid #0F2A24;
+  transition: background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.btn-primary-light:hover {
+  background-color: #091C18;
+  border-color: #091C18;
+}
+
+/* Secondary on Light: Transparent with 1px #0F2A24 border */
+.btn-secondary-light {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  color: #0F2A24;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 26px;
+  border-radius: 4px;
+  border: 1px solid #0F2A24;
+  transition: background-color 150ms ease, color 150ms ease;
+  cursor: pointer;
+}
+
+.btn-secondary-light:hover {
+  background-color: #0F2A24;
+  color: #F4F1EA;
+}
+
+/* Secondary on Dark: Transparent with 1px #F4F1EA border */
+.btn-secondary-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  color: #F4F1EA;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 26px;
+  border-radius: 4px;
+  border: 1px solid #F4F1EA;
+  transition: background-color 150ms ease, color 150ms ease;
+  cursor: pointer;
+}
+
+.btn-secondary-dark:hover {
+  background-color: #F4F1EA;
+  color: #0F2A24;
+}
+
+/* Hairline Cards: White #FFFFFF with 1px #DDD7CB border, NO shadow at rest, darkens to #B5632F on hover, NO lift */
+.card-hairline {
+  background-color: #FFFFFF;
+  border: 1px solid #DDD7CB;
+  border-radius: 4px;
+  transition: border-color 150ms ease;
+}
+
+.card-hairline:hover {
+  border-color: #B5632F;
+}
+
+/* Focus state */
+:focus-visible {
+  outline: 2px solid #B5632F;
+  outline-offset: 2px;
+}
