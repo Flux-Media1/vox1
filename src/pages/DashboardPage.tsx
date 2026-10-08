@@ -397,6 +397,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
                     {activeChatAppId && (
                       <ApplicationChatThread
+                        application={userApplications.find((a) => a.id === activeChatAppId)}
                         applicationId={activeChatAppId}
                         applicantName={user.fullName || user.email}
                         applicantEmail={user.email}

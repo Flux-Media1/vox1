@@ -10,13 +10,31 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
-import { MessageRecord, MessageSenderRole } from '../types';
+import { MessageRecord, MessageSenderRole, ApplicationRecord } from '../types';
 import { messagesService } from '../services/messagesService';
+import { isUUID } from '../services/applicationsService';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface ApplicationChatThreadProps {
-  applicationId: string;
-  applicantName: string;
-  applicantEmail: string;
+  application?: ApplicationRecord | {
+    id?: string;
+    email?: string;
+    user_email?: string;
+    full_name?: string;
+    user_id?: string | null;
+    userId?: string | null;
+    role_type?: any;
+    phone?: string;
+    details?: any;
+    status?: any;
+    notes?: string;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: any;
+  } | null;
+  applicationId?: string;
+  applicantName?: string;
+  applicantEmail?: string;
   recipientUserId?: string | null;
   currentUserRole: MessageSenderRole; // 'admin' or 'applicant'
   currentUserEmail: string;
@@ -27,6 +45,7 @@ interface ApplicationChatThreadProps {
 }
 
 export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
+  application,
   applicationId,
   applicantName,
   applicantEmail,
@@ -47,10 +66,19 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Safely resolve active state values
+  const currentAppId = application?.id || applicationId || '';
+  const currentApplicantEmail = application?.email || application?.user_email || applicantEmail || '';
+  const currentApplicantName = application?.full_name || applicantName || 'Applicant';
+
   // Fetch messages for this application
   const fetchMessages = async () => {
+    if (!currentAppId) {
+      setIsLoading(false);
+      return;
+    }
     try {
-      const res = await messagesService.getMessagesByApplication(applicationId);
+      const res = await messagesService.getMessagesByApplication(currentAppId);
       setMessages(res.data);
 
       // Mark unread messages sent to current role as read
@@ -79,9 +107,11 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
     setIsLoading(true);
     fetchMessages();
 
+    if (!currentAppId) return;
+
     // Subscribe to realtime messages for this application
     const unsubscribe = messagesService.subscribeToMessages(
-      applicationId,
+      currentAppId,
       (newMessage) => {
         setMessages((prev) => {
           if (prev.some((m) => m.id === newMessage.id)) {
@@ -103,7 +133,7 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [applicationId, currentUserRole]);
+  }, [currentAppId, currentUserRole]);
 
   // Auto-scroll to bottom on messages change
   useEffect(() => {
@@ -113,25 +143,85 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
   // Handle Send
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const content = inputText.trim();
-    if (!content || isSending) return;
+    const messageText = inputText.trim();
+    if (!messageText || isSending) return;
 
     setIsSending(true);
     setInputText('');
 
     try {
-      // Determine recipient user ID
-      const targetRecipient =
-        currentUserRole === 'admin'
-          ? recipientUserId || applicantEmail
-          : 'admin';
+      // 1. Ensure the application_id being passed is the actual UUID of the application
+      const rawAppId = application?.id || applicationId || '';
+      const actualApplicationId = (rawAppId && isUUID(rawAppId)) ? rawAppId : rawAppId;
 
+      // 2. Ensure recipient_user_id correctly resolves to the applicant's Supabase auth UUID
+      let resolvedRecipientUserId: string | null = null;
+      if (currentUserRole === 'admin') {
+        const candidateUserId = application?.user_id || application?.userId || recipientUserId;
+        if (candidateUserId && isUUID(candidateUserId)) {
+          resolvedRecipientUserId = candidateUserId;
+        } else if (currentApplicantEmail && isSupabaseConfigured && supabase) {
+          // Attempt to lookup auth UUID from Supabase applications table
+          try {
+            const { data: matchedRow } = await supabase
+              .from('applications')
+              .select('user_id')
+              .eq('email', currentApplicantEmail.toLowerCase().trim())
+              .not('user_id', 'is', null)
+              .limit(1)
+              .maybeSingle();
+
+            if (matchedRow?.user_id && isUUID(matchedRow.user_id)) {
+              resolvedRecipientUserId = matchedRow.user_id;
+            }
+          } catch (lookupErr) {
+            console.warn('[Admin Messaging] Lookup for applicant user_id encountered notice:', lookupErr);
+          }
+        }
+      } else {
+        // Applicant messaging admin: recipient is admin desk
+        resolvedRecipientUserId = recipientUserId && isUUID(recipientUserId) ? recipientUserId : null;
+      }
+
+      // Pre-flight check: ensure parent application exists in public.applications table
+      // to avoid Postgres 23503 foreign key constraint error ('messages_application_id_fkey')
+      if (actualApplicationId && isUUID(actualApplicationId) && isSupabaseConfigured && supabase) {
+        try {
+          const { data: existingApp } = await supabase
+            .from('applications')
+            .select('id')
+            .eq('id', actualApplicationId)
+            .maybeSingle();
+
+          if (!existingApp && application) {
+            await supabase.from('applications').insert([
+              {
+                id: actualApplicationId,
+                user_id: resolvedRecipientUserId,
+                role_type: application.role_type || 'candidate',
+                full_name: currentApplicantName,
+                email: currentApplicantEmail,
+                phone: application.phone || null,
+                details: application.details || {},
+                status: application.status || 'pending',
+                notes: application.notes || null,
+                created_at: application.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ]);
+          }
+        } catch (ensureErr) {
+          console.warn('[Admin Messaging] Pre-flight parent application verification notice:', ensureErr);
+        }
+      }
+
+      // Insert message via messagesService
       const res = await messagesService.sendMessage({
-        applicationId,
-        recipientUserId: targetRecipient,
-        senderEmail: currentUserEmail || (currentUserRole === 'admin' ? 'admin@vox-direct.com' : applicantEmail),
+        applicationId: actualApplicationId,
+        recipientUserId: resolvedRecipientUserId,
+        senderEmail: currentUserEmail || (currentUserRole === 'admin' ? 'admin@vox-direct.com' : currentApplicantEmail),
         senderRole: currentUserRole,
-        content,
+        content: messageText,
       });
 
       // Optimistically add to state if not already there
@@ -149,26 +239,36 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
       setTimeout(() => setSyncStatus(null), 3000);
 
       // -----------------------------------------------------------------------
-      // Dispatch email notification (Non-blocking, silent try/catch)
+      // 2. Fix the Missing Email Alert (Admin to Applicant)
       // -----------------------------------------------------------------------
-      try {
-        if (currentUserRole === 'admin') {
-          // Objective 1: Admin sends message -> notify applicant
-          fetch('/api/send-message-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipientEmail: applicantEmail,
-              recipientName: applicantName,
-              senderRole: 'admin',
-              messageSnippet: content.slice(0, 140),
-              dashboardUrl: 'https://vox-direct.com/dashboard',
-            }),
-          }).catch((err) => {
-            console.warn('[Silent notification dispatch notice]:', err);
-          });
+      if (currentUserRole === 'admin') {
+        // Safely resolve the applicant's email from the active state
+        const applicantEmail = application?.email || application?.user_email || currentApplicantEmail;
+
+        if (!applicantEmail || !applicantEmail.trim()) {
+          console.warn('[Admin Messaging] Missing applicant email; skipping email notification fetch.');
         } else {
-          // Objective 2: Applicant replies to admin -> notify admin
+          try {
+            fetch('/api/send-message-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recipientEmail: applicantEmail.trim(),
+                recipientName: application?.full_name || currentApplicantName,
+                senderRole: 'admin',
+                messageSnippet: messageText.slice(0, 140),
+                dashboardUrl: 'https://vox-direct.com/dashboard',
+              }),
+            }).catch((fetchErr) => {
+              console.warn('[Admin Messaging] Non-blocking email alert fetch notice:', fetchErr);
+            });
+          } catch (emailErr) {
+            console.warn('[Admin Messaging] Non-blocking email alert exception:', emailErr);
+          }
+        }
+      } else {
+        // Applicant replying to Admin
+        try {
           const adminEmail = 'jc.dev.uk@gmail.com';
           fetch('/api/send-message-notification', {
             method: 'POST',
@@ -177,16 +277,15 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
               recipientEmail: adminEmail,
               recipientName: 'Admin',
               senderRole: 'applicant',
-              messageSnippet: content.slice(0, 140),
+              messageSnippet: messageText.slice(0, 140),
               dashboardUrl: 'https://vox-direct.com/admin',
             }),
-          }).catch((err) => {
-            console.warn('[Silent notification dispatch notice]:', err);
+          }).catch((fetchErr) => {
+            console.warn('[Applicant Messaging] Non-blocking email alert fetch notice:', fetchErr);
           });
+        } catch (emailErr) {
+          console.warn('[Applicant Messaging] Non-blocking email alert exception:', emailErr);
         }
-      } catch (silentErr) {
-        // Ensure UI does NOT fail if email notification dispatch encounters an error
-        console.warn('[Silent notification error]:', silentErr);
       }
     } catch (err) {
       console.warn('Failed to send message:', err);

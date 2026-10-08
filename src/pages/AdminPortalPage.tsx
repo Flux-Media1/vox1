@@ -342,7 +342,7 @@ create policy "Allow all delete" on public.applications for delete using (true);
 -- ----------------------------------------------------------------------------
 create table if not exists public.messages (
   id uuid default gen_random_uuid() primary key,
-  application_id uuid not null,
+  application_id uuid references public.applications(id) on delete set null,
   recipient_user_id text,
   sender_email text not null,
   sender_role text not null check (sender_role in ('admin', 'applicant')),
@@ -350,6 +350,9 @@ create table if not exists public.messages (
   is_read boolean not null default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Ensure application_id is nullable for profile-level and unlinked messaging fallback
+alter table public.messages alter column application_id drop not null;
 
 -- Enable Row Level Security (RLS) for Messages
 alter table public.messages enable row level security;
@@ -1335,6 +1338,7 @@ create policy "Allow all delete messages" on public.messages for delete using (t
                 /* Drawer Body: Messages & Direct Contact Tab */
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   <ApplicationChatThread
+                    application={selectedApplication}
                     applicationId={selectedApplication.id}
                     applicantName={selectedApplication.full_name}
                     applicantEmail={selectedApplication.email}

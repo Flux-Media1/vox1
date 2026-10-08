@@ -39,9 +39,11 @@ export type ApplicationStatus =
 export interface ApplicationRecord {
   id: string;
   user_id?: string | null;
+  userId?: string | null;
   role_type: ApplicationRoleType;
   full_name: string;
   email: string;
+  user_email?: string;
   phone?: string;
   details: Record<string, any>;
   status: ApplicationStatus;
@@ -54,7 +56,7 @@ export type MessageSenderRole = 'admin' | 'applicant';
 
 export interface MessageRecord {
   id: string;
-  application_id: string;
+  application_id: string | null;
   recipient_user_id?: string | null;
   sender_email: string;
   sender_role: MessageSenderRole;

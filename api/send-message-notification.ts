@@ -1,4 +1,14 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+type VercelRequest = {
+  method?: string;
+  body?: any;
+  [key: string]: any;
+};
+
+type VercelResponse = {
+  status: (code: number) => VercelResponse;
+  json: (data: any) => VercelResponse;
+  [key: string]: any;
+};
 import nodemailer from 'nodemailer';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

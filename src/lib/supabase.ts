@@ -41,7 +41,7 @@
  *    -- Messages Table (Bi-directional Messaging)
  *    CREATE TABLE IF NOT EXISTS public.messages (
  *      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
- *      application_id UUID NOT NULL,
+ *      application_id UUID REFERENCES public.applications(id) ON DELETE SET NULL,
  *      recipient_user_id TEXT,
  *      sender_email TEXT NOT NULL,
  *      sender_role TEXT NOT NULL CHECK (sender_role IN ('admin', 'applicant')),
@@ -49,6 +49,7 @@
  *      is_read BOOLEAN NOT NULL DEFAULT false,
  *      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
  *    );
+ *    ALTER TABLE public.messages ALTER COLUMN application_id DROP NOT NULL;
  *    ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
  *    DROP POLICY IF EXISTS "Allow public insert messages" ON public.messages;
  *    DROP POLICY IF EXISTS "Allow all read messages" ON public.messages;

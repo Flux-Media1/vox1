@@ -181,7 +181,7 @@ export const messagesService = {
    * Send a message
    */
   async sendMessage(params: {
-    applicationId: string;
+    applicationId?: string | null;
     recipientUserId?: string | null;
     senderEmail: string;
     senderRole: MessageSenderRole;
@@ -189,10 +189,11 @@ export const messagesService = {
   }): Promise<{ record: MessageRecord; syncedToSupabase: boolean; error?: string }> {
     const messageId = generateUUID();
     const now = new Date().toISOString();
+    const validAppId = params.applicationId && isUUID(params.applicationId) ? params.applicationId : null;
 
     const record: MessageRecord = {
       id: messageId,
-      application_id: params.applicationId,
+      application_id: validAppId || params.applicationId || null,
       recipient_user_id: params.recipientUserId || null,
       sender_email: params.senderEmail,
       sender_role: params.senderRole,
@@ -211,37 +212,51 @@ export const messagesService = {
     let syncError: string | undefined = undefined;
 
     if (isSupabaseConfigured && supabase) {
-      if (isUUID(params.applicationId)) {
-        try {
-          const { data, error } = await supabase
-            .from('messages')
-            .insert([
-              {
-                id: messageId,
-                application_id: params.applicationId,
-                recipient_user_id: params.recipientUserId || null,
-                sender_email: params.senderEmail,
-                sender_role: params.senderRole,
-                content: record.content,
-                is_read: false,
-                created_at: now,
-              },
-            ])
-            .select()
-            .single();
+      try {
+        const payload = {
+          id: messageId,
+          application_id: validAppId,
+          recipient_user_id: params.recipientUserId || null,
+          sender_email: params.senderEmail,
+          sender_role: params.senderRole,
+          content: record.content,
+          is_read: false,
+          created_at: now,
+        };
 
-          if (!error && data) {
-            syncedToSupabase = true;
-          } else if (error) {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert([payload])
+          .select()
+          .maybeSingle();
+
+        if (!error && data) {
+          syncedToSupabase = true;
+        } else if (error) {
+          // If foreign key constraint violates 'messages_application_id_fkey' (Postgres error 23503),
+          // retry with application_id set to null (profile-level message fallback)
+          if (error.code === '23503' && payload.application_id !== null) {
+            console.warn('[messagesService] Foreign key constraint 23503 encountered. Retrying with application_id: null fallback...', error.message);
+            const fallbackRes = await supabase
+              .from('messages')
+              .insert([{ ...payload, application_id: null }])
+              .select()
+              .maybeSingle();
+
+            if (!fallbackRes.error && fallbackRes.data) {
+              syncedToSupabase = true;
+            } else {
+              console.warn('[messagesService] Fallback insert failed:', fallbackRes.error?.message);
+              syncError = fallbackRes.error?.message || error.message;
+            }
+          } else {
             console.warn('Supabase insert message notice (RLS or policy):', error.message);
             syncError = error.message;
           }
-        } catch (err: any) {
-          console.warn('Exception during Supabase message insertion:', err);
-          syncError = err?.message;
         }
-      } else {
-        syncError = 'Application ID is non-UUID format; persisted to local desk.';
+      } catch (err: any) {
+        console.warn('Exception during Supabase message insertion:', err);
+        syncError = err?.message;
       }
     }
 
