@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import nodemailer from 'nodemailer';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -12,52 +11,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
 
-  // Transporter using your existing SMTP / Gmail config
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-    auth: {
-      user: process.env.SMTP_FROM,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  });
-
-  const isToApplicant = senderRole === 'admin';
-  const subject = isToApplicant
-    ? 'New message from Vox Direct'
+  const subject = senderRole === 'admin'
+    ? 'New message from Vox Direct regarding your application'
     : 'New applicant response received on Vox Direct';
 
-  const html = `
-    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #faf9f6; border: 1px solid #e2e8f0; border-radius: 4px;">
-      <h2 style="color: #0f3d2e; margin-top: 0;">Vox Direct</h2>
-      <p>Hello ${recipientName || 'there'},</p>
-      <p>You have received a new message regarding your placement application:</p>
-      <blockquote style="background: #ffffff; border-left: 4px solid #c27803; padding: 12px 16px; margin: 16px 0; font-style: italic; color: #475569;">
-        "${messageSnippet}"
-      </blockquote>
-      <p style="margin-top: 24px;">
-        <a href="${dashboardUrl || 'https://vox-direct.com/dashboard'}" 
-           style="background-color: #0f3d2e; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: 600;">
-          View & Reply
-        </a>
-      </p>
-      <hr style="margin-top: 32px; border: none; border-top: 1px solid #cbd5e1;" />
-      <p style="font-size: 12px; color: #94a3b8;">Vox Direct · UK Sales Placement Service</p>
-    </div>
-  `;
-
   try {
-    await transporter.sendMail({
-      from: `"Vox Direct" <${process.env.SMTP_FROM}>`,
-      to: recipientEmail,
-      subject: subject,
-      html: html,
+    const response = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        access_key: process.env.WEB3FORMS_ACCESS_KEY,
+        to_email: recipientEmail,
+        from_name: 'Vox Direct',
+        subject: subject,
+        message: `Hello ${recipientName || 'there'},\n\nYou have received a new message:\n\n"${messageSnippet}"\n\nView and reply here:\n${dashboardUrl || 'https://vox-direct.com/dashboard'}`,
+      }),
     });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      return res.status(500).json({ error: result.message || 'Web3Forms failed to deliver' });
+    }
 
     return res.status(200).json({ success: true });
   } catch (err: any) {
-    console.error('SMTP Error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to send notification email' });
+    return res.status(500).json({ error: err.message || 'Unexpected server error' });
   }
 }
