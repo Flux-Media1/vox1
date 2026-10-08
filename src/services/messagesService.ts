@@ -202,11 +202,6 @@ export const messagesService = {
       created_at: now,
     };
 
-    // 1. Immediately store in local cache
-    const currentList = this.getLocalCache();
-    const updatedList = [...currentList, record];
-    this.saveLocalCache(updatedList);
-
     // 2. Sync to Supabase
     let syncedToSupabase = false;
     let syncError: string | undefined = undefined;
@@ -250,14 +245,25 @@ export const messagesService = {
               syncError = fallbackRes.error?.message || error.message;
             }
           } else {
-            console.warn('Supabase insert message notice (RLS or policy):', error.message);
-            syncError = error.message;
+            console.error('[messagesService] Supabase insert message failed:', {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            });
+            syncError = `${error.code ? `[${error.code}] ` : ''}${error.message}`;
           }
         }
       } catch (err: any) {
-        console.warn('Exception during Supabase message insertion:', err);
-        syncError = err?.message;
+        console.error('Exception during Supabase message insertion:', err);
+        syncError = err?.message || 'Unexpected database failure';
       }
+    }
+
+    // 1. Immediately store in local cache only if Supabase succeeded or if Supabase is not configured (offline mode)
+    if (!syncError) {
+      const currentList = this.getLocalCache();
+      const updatedList = [...currentList, record];
+      this.saveLocalCache(updatedList);
     }
 
     return { record, syncedToSupabase, error: syncError };

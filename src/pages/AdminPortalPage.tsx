@@ -354,6 +354,24 @@ create table if not exists public.messages (
 -- Ensure application_id is nullable for profile-level and unlinked messaging fallback
 alter table public.messages alter column application_id drop not null;
 
+-- Remove any UNIQUE constraints that cause 409 Conflict errors (e.g. application_id, recipient_user_id)
+do $$
+declare
+  r record;
+begin
+  for r in (
+    select conname
+    from pg_constraint con
+    join pg_class rel on rel.oid = con.conrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    where nsp.nspname = 'public'
+      and rel.relname = 'messages'
+      and con.contype = 'u'
+  ) loop
+    execute format('alter table public.messages drop constraint if exists %I cascade;', r.conname);
+  end loop;
+end $$;
+
 -- Enable Row Level Security (RLS) for Messages
 alter table public.messages enable row level security;
 

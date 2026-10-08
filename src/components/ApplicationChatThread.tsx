@@ -215,7 +215,7 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
         }
       }
 
-      // Insert message via messagesService
+      // Insert message via messagesService - STRICTLY AWAIT DB INSERT FIRST
       const res = await messagesService.sendMessage({
         applicationId: actualApplicationId,
         recipientUserId: resolvedRecipientUserId,
@@ -223,6 +223,18 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
         senderRole: currentUserRole,
         content: messageText,
       });
+
+      // If database insert produced an error (e.g. 409 Conflict, 42501 RLS, 23503 constraint), abort and do NOT dispatch email!
+      if (res.error) {
+        console.error('[Messaging] Database insert failed. Aborting notification email dispatch.', {
+          error: res.error,
+          applicationId: actualApplicationId,
+          role: currentUserRole,
+        });
+        setSyncStatus(`Database error: ${res.error}`);
+        setTimeout(() => setSyncStatus(null), 5000);
+        return;
+      }
 
       // Optimistically add to state if not already there
       setMessages((prev) => {
@@ -239,28 +251,34 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
       setTimeout(() => setSyncStatus(null), 3000);
 
       // -----------------------------------------------------------------------
-      // 2. Fix the Missing Email Alert (Admin to Applicant)
+      // 2. Email Dispatch - ONLY AFTER DB SUCCEEDS
       // -----------------------------------------------------------------------
       if (currentUserRole === 'admin') {
-        // Safely resolve the applicant's email from the active state
-        const applicantEmail = application?.email || application?.user_email || currentApplicantEmail;
+        // Resolve candidate email explicitly from application record or candidate state
+        const applicantEmail = (application?.email || application?.user_email || currentApplicantEmail || '').trim();
+        const applicantDisplayName = application?.full_name || currentApplicantName || 'Applicant';
 
-        if (!applicantEmail || !applicantEmail.trim()) {
+        console.log('[Admin Messaging] Resolved applicant email for notification payload:', {
+          applicantEmail,
+          applicantDisplayName,
+          adminEmail: currentUserEmail,
+          applicationId: actualApplicationId,
+        });
+
+        if (!applicantEmail) {
           console.warn('[Admin Messaging] Missing applicant email; skipping email notification fetch.');
         } else {
           try {
-            fetch('/api/send-message-notification', {
+            await fetch('/api/send-message-notification', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                recipientEmail: applicantEmail.trim(),
-                recipientName: application?.full_name || currentApplicantName,
+                recipientEmail: applicantEmail, // Explicit applicant recipient, never logged-in admin email
+                recipientName: applicantDisplayName,
                 senderRole: 'admin',
                 messageSnippet: messageText.slice(0, 140),
                 dashboardUrl: 'https://vox-direct.com/dashboard',
               }),
-            }).catch((fetchErr) => {
-              console.warn('[Admin Messaging] Non-blocking email alert fetch notice:', fetchErr);
             });
           } catch (emailErr) {
             console.warn('[Admin Messaging] Non-blocking email alert exception:', emailErr);
@@ -270,7 +288,7 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
         // Applicant replying to Admin
         try {
           const adminEmail = 'jc.dev.uk@gmail.com';
-          fetch('/api/send-message-notification', {
+          await fetch('/api/send-message-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -280,8 +298,6 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
               messageSnippet: messageText.slice(0, 140),
               dashboardUrl: 'https://vox-direct.com/admin',
             }),
-          }).catch((fetchErr) => {
-            console.warn('[Applicant Messaging] Non-blocking email alert fetch notice:', fetchErr);
           });
         } catch (emailErr) {
           console.warn('[Applicant Messaging] Non-blocking email alert exception:', emailErr);
