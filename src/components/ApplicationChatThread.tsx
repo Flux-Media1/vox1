@@ -147,6 +147,47 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
       }
 
       setTimeout(() => setSyncStatus(null), 3000);
+
+      // -----------------------------------------------------------------------
+      // Dispatch email notification (Non-blocking, silent try/catch)
+      // -----------------------------------------------------------------------
+      try {
+        if (currentUserRole === 'admin') {
+          // Objective 1: Admin sends message -> notify applicant
+          fetch('/api/send-message-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipientEmail: applicantEmail,
+              recipientName: applicantName,
+              senderRole: 'admin',
+              messageSnippet: content.slice(0, 140),
+              dashboardUrl: 'https://vox-direct.com/dashboard',
+            }),
+          }).catch((err) => {
+            console.warn('[Silent notification dispatch notice]:', err);
+          });
+        } else {
+          // Objective 2: Applicant replies to admin -> notify admin
+          const adminEmail = 'jc.dev.uk@gmail.com';
+          fetch('/api/send-message-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipientEmail: adminEmail,
+              recipientName: 'Admin',
+              senderRole: 'applicant',
+              messageSnippet: content.slice(0, 140),
+              dashboardUrl: 'https://vox-direct.com/admin',
+            }),
+          }).catch((err) => {
+            console.warn('[Silent notification dispatch notice]:', err);
+          });
+        }
+      } catch (silentErr) {
+        // Ensure UI does NOT fail if email notification dispatch encounters an error
+        console.warn('[Silent notification error]:', silentErr);
+      }
     } catch (err) {
       console.warn('Failed to send message:', err);
     } finally {

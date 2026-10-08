@@ -597,6 +597,154 @@ app.get('/api/sent-emails', (req: Request, res: Response) => {
   });
 });
 
+// POST endpoint: /api/send-message-notification
+// Sends email alerts when messages are exchanged between Admin and Applicants
+app.post('/api/send-message-notification', async (req: Request, res: Response) => {
+  try {
+    const { recipientEmail, recipientName, senderRole, messageSnippet, dashboardUrl } = req.body || {};
+
+    if (!recipientEmail || !senderRole) {
+      return res.status(400).json({ error: 'Missing required parameters (recipientEmail, senderRole)' });
+    }
+
+    const cleanEmail = String(recipientEmail).trim();
+    const cleanName = String(recipientName || 'Applicant').trim();
+    const cleanSnippet = String(messageSnippet || '').trim();
+    const targetUrl = String(
+      dashboardUrl ||
+        (senderRole === 'admin' ? 'https://vox-direct.com/dashboard' : 'https://vox-direct.com/admin')
+    );
+
+    const fromAddress =
+      process.env.SMTP_FROM ||
+      (process.env.RESEND_API_KEY
+        ? 'Vox Direct <onboarding@resend.dev>'
+        : process.env.SMTP_USER
+        ? `Vox Direct <${process.env.SMTP_USER}>`
+        : 'Vox Direct <notifications@voxdirect.co.uk>');
+
+    let subject = '';
+    let text = '';
+    let html = '';
+
+    if (senderRole === 'admin') {
+      subject = `[Vox Direct] New Message Regarding Your Application`;
+      text = `
+Dear ${cleanName},
+
+The Vox Direct placement team has sent you a direct message regarding your application:
+
+"${cleanSnippet}"
+
+To read the full conversation and reply, visit your applicant dashboard:
+${targetUrl}
+
+Kind regards,
+Vox Direct Placement Team
+      `.trim();
+
+      html = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 28px; background-color: #FAF8F4; border: 1px solid #DDD7CB; border-radius: 4px; color: #1A1A18;">
+          <div style="border-bottom: 2px solid #0F2A24; padding-bottom: 14px; margin-bottom: 24px;">
+            <span style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #B5632F; display: block; margin-bottom: 4px;">Vox Direct Placement Desk</span>
+            <h2 style="color: #0F2A24; margin: 0; font-size: 22px; font-weight: 600;">New Message Received</h2>
+          </div>
+
+          <p style="font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+            Dear <strong>${cleanName}</strong>,
+          </p>
+
+          <p style="font-size: 14px; line-height: 1.6; margin: 0 0 18px 0; color: #4A4A44;">
+            Our placement team has posted an update to your Vox Direct correspondence channel:
+          </p>
+
+          <div style="background-color: #FFFFFF; border: 1px solid #DDD7CB; border-left: 4px solid #B5632F; padding: 16px 18px; margin: 18px 0; border-radius: 4px; font-size: 14px; line-height: 1.6; color: #0F2A24; font-style: italic;">
+            &ldquo;${cleanSnippet}&rdquo;
+          </div>
+
+          <div style="margin: 28px 0; text-align: left;">
+            <a href="${targetUrl}" style="display: inline-block; background-color: #0F2A24; color: #F4F1EA; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;">
+              Open Dashboard &amp; Reply &rarr;
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #E5E0D6; padding-top: 18px; margin-top: 28px; font-size: 12px; color: #7A7A72; line-height: 1.5;">
+            You are receiving this because you submitted an application on Vox Direct.<br />
+            Direct URL: <a href="${targetUrl}" style="color: #B5632F; text-decoration: underline;">${targetUrl}</a>
+          </div>
+        </div>
+      `;
+    } else {
+      subject = `[Vox Direct Alert] New Message from Applicant: ${cleanName}`;
+      text = `
+NEW APPLICANT MESSAGE
+=====================
+From: ${cleanName} (${cleanEmail})
+Role: Applicant
+
+MESSAGE PREVIEW:
+"${cleanSnippet}"
+
+Open Admin Desk to view message history and respond:
+${targetUrl}
+      `.trim();
+
+      html = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 28px; background-color: #FAF8F4; border: 1px solid #DDD7CB; border-radius: 4px; color: #1A1A18;">
+          <div style="border-bottom: 2px solid #0F2A24; padding-bottom: 14px; margin-bottom: 24px;">
+            <span style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #B5632F; display: block; margin-bottom: 4px;">Internal Placement Alert</span>
+            <h2 style="color: #0F2A24; margin: 0; font-size: 22px; font-weight: 600;">Applicant Response Received</h2>
+          </div>
+
+          <p style="font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
+            <strong>${cleanName}</strong> (<a href="mailto:${cleanEmail}" style="color: #0F2A24; font-family: monospace;">${cleanEmail}</a>) has replied to your intake channel:
+          </p>
+
+          <div style="background-color: #FFFFFF; border: 1px solid #DDD7CB; border-left: 4px solid #0F2A24; padding: 16px 18px; margin: 18px 0; border-radius: 4px; font-size: 14px; line-height: 1.6; color: #1A1A18;">
+            ${cleanSnippet}
+          </div>
+
+          <div style="margin: 28px 0; text-align: left;">
+            <a href="${targetUrl}" style="display: inline-block; background-color: #B5632F; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;">
+              Open Admin Review Desk &rarr;
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #E5E0D6; padding-top: 18px; margin-top: 28px; font-size: 12px; color: #7A7A72;">
+            Notification sent from Vox Direct Messaging Dispatcher.
+          </div>
+        </div>
+      `;
+    }
+
+    const record = await dispatchEmail({
+      to: cleanEmail,
+      recipientType: senderRole === 'admin' ? 'submitter' : 'admin',
+      from: fromAddress,
+      subject,
+      html,
+      text,
+      type: 'contact',
+    });
+
+    console.log(`[Message Notification Processed] To: ${cleanEmail} | Status: ${record.status}`);
+
+    return res.status(200).json({
+      success: true,
+      deliveredTo: cleanEmail,
+      senderRole,
+      isLive: record.status === 'sent',
+      provider: record.provider,
+    });
+  } catch (error: unknown) {
+    console.error('Failed to process message notification:', error);
+    return res.status(500).json({
+      error: 'Failed to process message notification',
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 // Vite middleware mounting in development, or static hosting in production
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {
