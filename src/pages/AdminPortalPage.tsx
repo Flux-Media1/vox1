@@ -370,8 +370,10 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({ onNavigate }) 
     });
   }, [applications, activeTab, statusFilter, searchQuery]);
 
-  const sqlSchema = `-- Supabase Schema & Security Policies for Vox Direct Applications
+  const sqlSchema = `-- ============================================================================
+-- Supabase Schema & Security Policies for Vox Direct (Multi-Admin & Realtime)
 -- Run this in your Supabase Dashboard > SQL Editor:
+-- ============================================================================
 
 create table if not exists public.applications (
   id uuid default gen_random_uuid() primary key,
@@ -390,7 +392,7 @@ create table if not exists public.applications (
 -- Enable Row Level Security (RLS)
 alter table public.applications enable row level security;
 
--- Drop any existing conflicting policies so script can be re-run cleanly
+-- Drop legacy or single-admin restrictive policies
 drop policy if exists "Allow public insert" on public.applications;
 drop policy if exists "Allow all read" on public.applications;
 drop policy if exists "Allow all update" on public.applications;
@@ -398,12 +400,55 @@ drop policy if exists "Allow all delete" on public.applications;
 drop policy if exists "Allow inserts for all" on public.applications;
 drop policy if exists "Allow reads for all" on public.applications;
 drop policy if exists "Allow updates for all" on public.applications;
+drop policy if exists "Admin read applications" on public.applications;
+drop policy if exists "Admins can view applications" on public.applications;
+drop policy if exists "Admin read access" on public.applications;
+drop policy if exists "Allow admin read" on public.applications;
+drop policy if exists "Admin and owner read applications" on public.applications;
+drop policy if exists "Admin update applications" on public.applications;
+drop policy if exists "Admin delete applications" on public.applications;
 
--- Create policies for public intake submissions & admin review operations
-create policy "Allow public insert" on public.applications for insert with check (true);
-create policy "Allow all read" on public.applications for select using (true);
-create policy "Allow all update" on public.applications for update using (true) with check (true);
-create policy "Allow all delete" on public.applications for delete using (true);
+-- Option A (Production Multi-Admin RLS):
+-- Admins (by email or metadata role) can view all; applicants can view their own
+create policy "Allow public insert" on public.applications
+  for insert with check (true);
+
+create policy "Admin and owner read applications" on public.applications
+  for select using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) in (
+      'jc.dev.uk@gmail.com',
+      'admin@vox-direct.com',
+      'team@vox-direct.com',
+      'director@vox-direct.com'
+      -- Add your business partner's email below (e.g. 'partner@company.com'):
+    )
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin'
+    or user_id = auth.uid()::text
+    or lower(coalesce(auth.jwt() ->> 'email', '')) = lower(email)
+  );
+
+create policy "Admin update applications" on public.applications
+  for update using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) in (
+      'jc.dev.uk@gmail.com',
+      'admin@vox-direct.com',
+      'team@vox-direct.com',
+      'director@vox-direct.com'
+    )
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin'
+  )
+  with check (true);
+
+create policy "Admin delete applications" on public.applications
+  for delete using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) in (
+      'jc.dev.uk@gmail.com',
+      'admin@vox-direct.com',
+      'team@vox-direct.com',
+      'director@vox-direct.com'
+    )
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin'
+  );
 
 -- ----------------------------------------------------------------------------
 -- Messages Table (Bi-directional Applicant-Admin Messaging)
@@ -419,10 +464,10 @@ create table if not exists public.messages (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Ensure application_id is nullable for profile-level and unlinked messaging fallback
+-- Ensure application_id is nullable for fallback chats
 alter table public.messages alter column application_id drop not null;
 
--- Remove any UNIQUE constraints that cause 409 Conflict errors (e.g. application_id, recipient_user_id)
+-- Remove any legacy UNIQUE constraints that cause 409 Conflict errors
 do $$
 declare
   r record;
@@ -443,17 +488,60 @@ end $$;
 -- Enable Row Level Security (RLS) for Messages
 alter table public.messages enable row level security;
 
--- Drop any conflicting messages policies
 drop policy if exists "Allow public insert messages" on public.messages;
 drop policy if exists "Allow all read messages" on public.messages;
 drop policy if exists "Allow all update messages" on public.messages;
 drop policy if exists "Allow all delete messages" on public.messages;
+drop policy if exists "Admin and participant read messages" on public.messages;
+drop policy if exists "Admin and participant update messages" on public.messages;
 
--- Create policies for messaging
-create policy "Allow public insert messages" on public.messages for insert with check (true);
-create policy "Allow all read messages" on public.messages for select using (true);
-create policy "Allow all update messages" on public.messages for update using (true) with check (true);
-create policy "Allow all delete messages" on public.messages for delete using (true);`;
+create policy "Allow public insert messages" on public.messages
+  for insert with check (true);
+
+create policy "Admin and participant read messages" on public.messages
+  for select using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) in (
+      'jc.dev.uk@gmail.com',
+      'admin@vox-direct.com',
+      'team@vox-direct.com',
+      'director@vox-direct.com'
+    )
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin'
+    or lower(sender_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    or recipient_user_id = auth.uid()::text
+  );
+
+create policy "Admin and participant update messages" on public.messages
+  for update using (true) with check (true);
+
+create policy "Allow all delete messages" on public.messages
+  for delete using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) in (
+      'jc.dev.uk@gmail.com',
+      'admin@vox-direct.com',
+      'team@vox-direct.com',
+      'director@vox-direct.com'
+    )
+    or coalesce(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin'
+  );
+
+-- ----------------------------------------------------------------------------
+-- Realtime Setup: Broadcast INSERT & UPDATE events to admins & candidates
+-- ----------------------------------------------------------------------------
+alter table public.applications replica identity full;
+alter table public.messages replica identity full;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.applications;
+exception when others then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.messages;
+exception when others then null;
+end $$;`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlSchema);
