@@ -7,6 +7,7 @@
 
 import { OfferOwnerSubmission, OfferSeekerSubmission, ContactSubmission } from '../types';
 import { siteConfig } from '../data/content';
+import { applicationsService } from './applicationsService';
 
 const STORAGE_KEYS = {
   OFFER_OWNERS: 'vox_direct_submissions_offer_owners',
@@ -220,10 +221,32 @@ export const submissionService = {
       console.warn('Could not persist to localStorage:', e);
     }
 
-    // 1. Send to email address
+    // 1. Persist directly to Supabase applications table & local store
+    try {
+      await applicationsService.createApplication({
+        userId: (data as any).userId || null,
+        roleType: 'offer_owner',
+        fullName: entry.fullName,
+        email: entry.email,
+        phone: entry.phone,
+        details: {
+          company: entry.company,
+          website: entry.website,
+          roleNeeded: entry.roleNeeded,
+          commissionStructure: entry.commissionStructure,
+          expectedVolume: entry.expectedVolume,
+          offerDescription: entry.offerDescription,
+          message: entry.message,
+        },
+      });
+    } catch (e) {
+      console.warn('Could not persist offer owner to applications table:', e);
+    }
+
+    // 2. Send to email address
     const emailResult = await sendEmailNotification('offer_owner', entry);
 
-    // 2. Forward to external webhook if configured
+    // 3. Forward to external webhook if configured
     await forwardToWebhook('offer_owner', entry);
 
     return {
@@ -256,10 +279,33 @@ export const submissionService = {
       console.warn('Could not persist to localStorage:', e);
     }
 
-    // 1. Send to email address
+    // 1. Persist directly to Supabase applications table & local store
+    try {
+      await applicationsService.createApplication({
+        userId: (data as any).userId || null,
+        roleType: 'candidate',
+        fullName: entry.fullName,
+        email: entry.email,
+        phone: entry.phone,
+        details: {
+          locationAndTimezone: entry.locationAndTimezone,
+          role: entry.role,
+          experience: entry.experience,
+          nichesWorkedIn: entry.nichesWorkedIn,
+          toolsUsed: entry.toolsUsed,
+          portfolioOrVideoLink: entry.portfolioOrVideoLink,
+          gdprConsent: entry.gdprConsent,
+          message: entry.message,
+        },
+      });
+    } catch (e) {
+      console.warn('Could not persist candidate to applications table:', e);
+    }
+
+    // 2. Send to email address
     const emailResult = await sendEmailNotification('offer_seeker', entry);
 
-    // 2. Forward to external webhook if configured
+    // 3. Forward to external webhook if configured
     await forwardToWebhook('offer_seeker', entry);
 
     return {

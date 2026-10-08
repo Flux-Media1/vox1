@@ -7,13 +7,28 @@ interface AuthResponse {
   confirmationSent?: boolean;
 }
 
+export const ADMIN_EMAILS = [
+  'jc.dev.uk@gmail.com',
+  'admin@vox-direct.com',
+  'team@vox-direct.com',
+  'director@vox-direct.com',
+];
+
+export const checkIsAdmin = (user: AuthUser | null): boolean => {
+  if (!user) return false;
+  if (user.role === 'admin' || user.isAdmin === true) return true;
+  return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === user.email?.trim().toLowerCase());
+};
+
 interface AuthContextType {
   user: AuthUser | null;
+  isAdmin: boolean;
   isLoading: boolean;
   isSupabaseConfigured: boolean;
   signInWithPassword: (email: string, password: string) => Promise<AuthResponse>;
   signUp: (email: string, password: string, role: UserRole, fullName?: string) => Promise<AuthResponse>;
   signInWithMagicLink: (email: string, redirectTo?: string) => Promise<AuthResponse>;
+  signInAsAdminDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   updateUserProfile: (data: Partial<AuthUser>) => void;
 }
@@ -418,15 +433,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isAdmin = checkIsAdmin(user);
+
+  /**
+   * Demo Sign In as Admin for instant portal testing
+   */
+  const signInAsAdminDemo = async () => {
+    const adminUser: AuthUser = {
+      id: 'usr_admin_verified',
+      email: 'jc.dev.uk@gmail.com',
+      fullName: 'Vox Direct Operations',
+      role: 'admin',
+      isAdmin: true,
+      createdAt: new Date().toISOString(),
+    };
+    setUser(adminUser);
+    localStorage.setItem(LOCAL_STORAGE_SESSION_KEY, JSON.stringify(adminUser));
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        isAdmin,
         isLoading,
         isSupabaseConfigured,
         signInWithPassword,
         signUp,
         signInWithMagicLink,
+        signInAsAdminDemo,
         signOut,
         updateUserProfile,
       }}

@@ -98,7 +98,8 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
         message: formData.message.trim() || undefined,
         gdprConsent: formData.gdprConsent,
         hpField: hpField || undefined,
-      });
+        userId: user?.id,
+      } as any);
 
       setDeliveredEmails({
         submitter: res.deliveredToSubmitter || formData.email.trim(),
@@ -194,10 +195,17 @@ export const OfferSeekersPage: React.FC<OfferSeekersPageProps> = ({ onNavigateTo
                     <strong className="text-[#1A1A18]">{deliveredEmails.submitter}</strong>. Our placement team will review your background and reach out soon.
                   </p>
                 )}
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap justify-center gap-3">
+                  <button
+                    onClick={() => onNavigate?.('dashboard')}
+                    className="btn-primary-light !py-2.5 !px-5 text-xs flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>View Status in Dashboard</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={() => setSubmittedSuccess(false)}
-                    className="btn-secondary-light !py-2.5 !px-5 text-xs"
+                    className="btn-secondary-light !py-2.5 !px-5 text-xs cursor-pointer"
                   >
                     Submit Another Application
                   </button>

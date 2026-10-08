@@ -13,16 +13,41 @@ export type PageId =
   | 'login'
   | 'signup'
   | 'dashboard'
+  | 'admin'
   | '404';
 
-export type UserRole = 'owner' | 'seeker';
+export type UserRole = 'owner' | 'seeker' | 'admin';
 
 export interface AuthUser {
   id: string;
   email: string;
   fullName?: string;
   role: UserRole;
+  isAdmin?: boolean;
   createdAt?: string;
+}
+
+export type ApplicationRoleType = 'offer_owner' | 'candidate';
+
+export type ApplicationStatus =
+  | 'pending'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'archived';
+
+export interface ApplicationRecord {
+  id: string;
+  user_id?: string | null;
+  role_type: ApplicationRoleType;
+  full_name: string;
+  email: string;
+  phone?: string;
+  details: Record<string, any>;
+  status: ApplicationStatus;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export type RoleNeeded = 'setter' | 'closer' | 'both';

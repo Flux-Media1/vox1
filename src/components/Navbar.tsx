@@ -10,7 +10,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
 
   const navLinks: { id: PageId; label: string }[] = [
     { id: 'home', label: 'Home' },
@@ -21,6 +21,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
 
   if (user) {
     navLinks.push({ id: 'dashboard', label: 'Dashboard' });
+  }
+
+  if (isAdmin) {
+    navLinks.push({ id: 'admin', label: 'Admin Portal' });
   }
 
   const handleLinkClick = (page: PageId) => {

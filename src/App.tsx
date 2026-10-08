@@ -51,6 +51,7 @@ import { TermsPage } from './pages/TermsPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { AdminPortalPage } from './pages/AdminPortalPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -109,6 +110,12 @@ const PAGE_META: Record<PageId, { title: string; description: string; path: stri
       'Internal intake and placement portal for verified offer owners and sales candidates.',
     path: '/dashboard',
   },
+  admin: {
+    title: 'Admin Placement Portal · Vox Direct',
+    description:
+      'Internal administrative dashboard for reviewing and managing candidate and offer owner placement applications.',
+    path: '/admin',
+  },
   '404': {
     title: 'Page Not Found · Vox Direct',
     description: 'The requested page could not be found on Vox Direct.',
@@ -117,7 +124,7 @@ const PAGE_META: Record<PageId, { title: string; description: string; path: stri
 };
 
 // Protected routes requiring authentication
-const PROTECTED_PAGES: PageId[] = ['offer-owners', 'offer-seekers', 'dashboard'];
+const PROTECTED_PAGES: PageId[] = ['offer-owners', 'offer-seekers', 'dashboard', 'admin'];
 
 function getPageFromPath(pathname: string): PageId {
   const clean = pathname.replace(/\/+$/, '') || '/';
@@ -131,6 +138,7 @@ function getPageFromPath(pathname: string): PageId {
   if (clean === '/login') return 'login';
   if (clean === '/signup') return 'signup';
   if (clean === '/dashboard') return 'dashboard';
+  if (clean === '/admin') return 'admin';
   return '404';
 }
 
@@ -257,6 +265,11 @@ function MainApp() {
         {/* Protected: Portal Dashboard */}
         {currentPage === 'dashboard' && (
           <DashboardPage onNavigate={navigateTo} />
+        )}
+
+        {/* Protected: Admin Placement Portal */}
+        {currentPage === 'admin' && (
+          <AdminPortalPage onNavigate={navigateTo} />
         )}
 
         {/* Public: Contact */}

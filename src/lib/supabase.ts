@@ -13,6 +13,25 @@
  *    - Enable Email Provider
  *    - Enable Magic Link (Email OTP)
  *    - Set Site URL to your domain (e.g. https://vox-direct.com) and redirect URLs
+ * 
+ * 6. In your Supabase Dashboard > SQL Editor, run this script to create the applications table:
+ *    CREATE TABLE IF NOT EXISTS public.applications (
+ *      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+ *      user_id TEXT,
+ *      role_type TEXT NOT NULL CHECK (role_type IN ('offer_owner', 'candidate')),
+ *      full_name TEXT NOT NULL,
+ *      email TEXT NOT NULL,
+ *      phone TEXT,
+ *      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+ *      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'under_review', 'approved', 'rejected', 'archived')),
+ *      notes TEXT,
+ *      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+ *      updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+ *    );
+ *    ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
+ *    CREATE POLICY "Allow all read" ON public.applications FOR SELECT USING (true);
+ *    CREATE POLICY "Allow public insert" ON public.applications FOR INSERT WITH CHECK (true);
+ *    CREATE POLICY "Allow all update" ON public.applications FOR UPDATE USING (true);
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
