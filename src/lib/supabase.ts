@@ -29,9 +29,14 @@
  *      updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
  *    );
  *    ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
- *    CREATE POLICY "Allow all read" ON public.applications FOR SELECT USING (true);
+ *    DROP POLICY IF EXISTS "Allow public insert" ON public.applications;
+ *    DROP POLICY IF EXISTS "Allow all read" ON public.applications;
+ *    DROP POLICY IF EXISTS "Allow all update" ON public.applications;
+ *    DROP POLICY IF EXISTS "Allow all delete" ON public.applications;
  *    CREATE POLICY "Allow public insert" ON public.applications FOR INSERT WITH CHECK (true);
- *    CREATE POLICY "Allow all update" ON public.applications FOR UPDATE USING (true);
+ *    CREATE POLICY "Allow all read" ON public.applications FOR SELECT USING (true);
+ *    CREATE POLICY "Allow all update" ON public.applications FOR UPDATE USING (true) WITH CHECK (true);
+ *    CREATE POLICY "Allow all delete" ON public.applications FOR DELETE USING (true);
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';

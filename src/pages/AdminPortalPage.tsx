@@ -158,34 +158,58 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({ onNavigate }) 
     }, 3500);
   };
 
-  // Status update handler
+  // Status update handler (optimistic and resilient)
   const handleStatusChange = async (id: string, newStatus: ApplicationStatus) => {
-    const success = await applicationsService.updateStatus(id, newStatus);
-    if (success) {
-      setApplications((prev) =>
-        prev.map((app) => (app.id === id ? { ...app, status: newStatus, updated_at: new Date().toISOString() } : app))
-      );
-      if (selectedApplication && selectedApplication.id === id) {
-        setSelectedApplication((prev) => (prev ? { ...prev, status: newStatus } : null));
+    // 1. Optimistically update local UI state immediately
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === id ? { ...app, status: newStatus, updated_at: new Date().toISOString() } : app
+      )
+    );
+    if (selectedApplication && selectedApplication.id === id) {
+      setSelectedApplication((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+
+    // 2. Persist to storage & sync with Supabase
+    try {
+      const res = await applicationsService.updateStatus(id, newStatus);
+      if (res.syncedToSupabase) {
+        showToast(`Status updated to ${formatStatusLabel(newStatus)} (Synced with Supabase)`);
+      } else if (res.error) {
+        console.warn('Supabase sync diagnostic:', res.error);
+        showToast(`Status updated to ${formatStatusLabel(newStatus)} (Saved to local desk)`);
+      } else {
+        showToast(`Status updated to ${formatStatusLabel(newStatus)}`);
       }
+    } catch (err: any) {
+      console.warn('Status change exception:', err);
       showToast(`Status updated to ${formatStatusLabel(newStatus)}`);
     }
   };
 
-  // Save admin notes handler
+  // Save admin notes handler (optimistic and resilient)
   const handleSaveNotes = async () => {
     if (!selectedApplication) return;
     setIsSavingNotes(true);
-    const success = await applicationsService.updateNotes(selectedApplication.id, adminNotes);
-    setIsSavingNotes(false);
-    if (success) {
-      setNotesSaveSuccess(true);
-      setApplications((prev) =>
-        prev.map((app) =>
-          app.id === selectedApplication.id ? { ...app, notes: adminNotes } : app
-        )
-      );
+    setNotesSaveSuccess(true);
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === selectedApplication.id ? { ...app, notes: adminNotes } : app
+      )
+    );
+    setSelectedApplication((prev) => (prev ? { ...prev, notes: adminNotes } : null));
+
+    try {
+      const res = await applicationsService.updateNotes(selectedApplication.id, adminNotes);
+      if (res.syncedToSupabase) {
+        showToast('Internal review notes saved & synced to Supabase.');
+      } else {
+        showToast('Internal review notes saved to local desk.');
+      }
+    } catch {
       showToast('Internal review notes saved.');
+    } finally {
+      setIsSavingNotes(false);
       setTimeout(() => setNotesSaveSuccess(false), 2500);
     }
   };
@@ -275,8 +299,9 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({ onNavigate }) 
     });
   }, [applications, activeTab, statusFilter, searchQuery]);
 
-  const sqlSchema = `-- Supabase Schema for Vox Direct Applications
--- Run this in your Supabase SQL Editor:
+  const sqlSchema = `-- Supabase Schema & Security Policies for Vox Direct Applications
+-- Run this in your Supabase Dashboard > SQL Editor:
+
 create table if not exists public.applications (
   id uuid default gen_random_uuid() primary key,
   user_id text,
@@ -291,13 +316,23 @@ create table if not exists public.applications (
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Enable Row Level Security
+-- Enable Row Level Security (RLS)
 alter table public.applications enable row level security;
 
--- Row Level Security policies
-create policy "Allow inserts for all" on public.applications for insert with check (true);
-create policy "Allow reads for all" on public.applications for select using (true);
-create policy "Allow updates for all" on public.applications for update using (true);`;
+-- Drop any existing conflicting policies so script can be re-run cleanly
+drop policy if exists "Allow public insert" on public.applications;
+drop policy if exists "Allow all read" on public.applications;
+drop policy if exists "Allow all update" on public.applications;
+drop policy if exists "Allow all delete" on public.applications;
+drop policy if exists "Allow inserts for all" on public.applications;
+drop policy if exists "Allow reads for all" on public.applications;
+drop policy if exists "Allow updates for all" on public.applications;
+
+-- Create policies for public intake submissions & admin review operations
+create policy "Allow public insert" on public.applications for insert with check (true);
+create policy "Allow all read" on public.applications for select using (true);
+create policy "Allow all update" on public.applications for update using (true) with check (true);
+create policy "Allow all delete" on public.applications for delete using (true);`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlSchema);
@@ -1169,30 +1204,50 @@ create policy "Allow updates for all" on public.applications for update using (t
                     <button
                       type="button"
                       onClick={() => handleStatusChange(selectedApplication.id, 'approved')}
-                      className="py-2 px-3 bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border border-[#22C55E]/40 rounded-[4px] font-semibold text-center transition-colors cursor-pointer"
+                      className={`py-2 px-3 rounded-[4px] font-semibold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        selectedApplication.status === 'approved'
+                          ? 'bg-[#166534] text-white border border-[#166534] shadow-sm'
+                          : 'bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border border-[#22C55E]/40'
+                      }`}
                     >
-                      Approve
+                      {selectedApplication.status === 'approved' && <Check className="w-3.5 h-3.5" />}
+                      <span>Approve</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(selectedApplication.id, 'under_review')}
-                      className="py-2 px-3 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1E40AF] border border-[#3B82F6]/40 rounded-[4px] font-medium text-center transition-colors cursor-pointer"
+                      className={`py-2 px-3 rounded-[4px] font-medium text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        selectedApplication.status === 'under_review'
+                          ? 'bg-[#1E40AF] text-white border border-[#1E40AF] shadow-sm'
+                          : 'bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1E40AF] border border-[#3B82F6]/40'
+                      }`}
                     >
-                      Under Review
+                      {selectedApplication.status === 'under_review' && <Check className="w-3.5 h-3.5" />}
+                      <span>Under Review</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(selectedApplication.id, 'rejected')}
-                      className="py-2 px-3 bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#991B1B] border border-[#EF4444]/40 rounded-[4px] font-medium text-center transition-colors cursor-pointer"
+                      className={`py-2 px-3 rounded-[4px] font-medium text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        selectedApplication.status === 'rejected'
+                          ? 'bg-[#991B1B] text-white border border-[#991B1B] shadow-sm'
+                          : 'bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#991B1B] border border-[#EF4444]/40'
+                      }`}
                     >
-                      Reject
+                      {selectedApplication.status === 'rejected' && <Check className="w-3.5 h-3.5" />}
+                      <span>Reject</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStatusChange(selectedApplication.id, 'archived')}
-                      className="py-2 px-3 bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#57534E] border border-[#A8A29E]/40 rounded-[4px] font-medium text-center transition-colors cursor-pointer"
+                      className={`py-2 px-3 rounded-[4px] font-medium text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        selectedApplication.status === 'archived'
+                          ? 'bg-[#57534E] text-white border border-[#57534E] shadow-sm'
+                          : 'bg-[#F5F5F4] hover:bg-[#E7E5E4] text-[#57534E] border border-[#A8A29E]/40'
+                      }`}
                     >
-                      Archive
+                      {selectedApplication.status === 'archived' && <Check className="w-3.5 h-3.5" />}
+                      <span>Archive</span>
                     </button>
                   </div>
                 </div>
