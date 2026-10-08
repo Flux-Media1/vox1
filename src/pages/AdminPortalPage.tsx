@@ -25,10 +25,12 @@ import {
   HelpCircle,
   ChevronDown,
   Trash2,
+  MessageSquare,
 } from 'lucide-react';
 import { PageId, ApplicationRecord, ApplicationRoleType, ApplicationStatus } from '../types';
 import { useAuth, ADMIN_EMAILS } from '../context/AuthContext';
 import { applicationsService } from '../services/applicationsService';
+import { ApplicationChatThread } from '../components/ApplicationChatThread';
 
 interface AdminPortalPageProps {
   onNavigate: (page: PageId) => void;
@@ -52,6 +54,7 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({ onNavigate }) 
 
   // Drawer / Modal state
   const [selectedApplication, setSelectedApplication] = useState<ApplicationRecord | null>(null);
+  const [drawerTab, setDrawerTab] = useState<'details' | 'messages'>('details');
   const [adminNotes, setAdminNotes] = useState<string>('');
   const [isSavingNotes, setIsSavingNotes] = useState<boolean>(false);
   const [notesSaveSuccess, setNotesSaveSuccess] = useState<boolean>(false);
@@ -332,7 +335,36 @@ drop policy if exists "Allow updates for all" on public.applications;
 create policy "Allow public insert" on public.applications for insert with check (true);
 create policy "Allow all read" on public.applications for select using (true);
 create policy "Allow all update" on public.applications for update using (true) with check (true);
-create policy "Allow all delete" on public.applications for delete using (true);`;
+create policy "Allow all delete" on public.applications for delete using (true);
+
+-- ----------------------------------------------------------------------------
+-- Messages Table (Bi-directional Applicant-Admin Messaging)
+-- ----------------------------------------------------------------------------
+create table if not exists public.messages (
+  id uuid default gen_random_uuid() primary key,
+  application_id uuid not null,
+  recipient_user_id text,
+  sender_email text not null,
+  sender_role text not null check (sender_role in ('admin', 'applicant')),
+  content text not null,
+  is_read boolean not null default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row Level Security (RLS) for Messages
+alter table public.messages enable row level security;
+
+-- Drop any conflicting messages policies
+drop policy if exists "Allow public insert messages" on public.messages;
+drop policy if exists "Allow all read messages" on public.messages;
+drop policy if exists "Allow all update messages" on public.messages;
+drop policy if exists "Allow all delete messages" on public.messages;
+
+-- Create policies for messaging
+create policy "Allow public insert messages" on public.messages for insert with check (true);
+create policy "Allow all read messages" on public.messages for select using (true);
+create policy "Allow all update messages" on public.messages for update using (true) with check (true);
+create policy "Allow all delete messages" on public.messages for delete using (true);`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlSchema);
@@ -847,11 +879,28 @@ create policy "Allow all delete" on public.applications for delete using (true);
                           </div>
                         </td>
 
-                        {/* 6. Action: View Application Button */}
+                        {/* 6. Action: View Application & Message Buttons */}
                         <td className="py-4 px-4 pr-6 text-right whitespace-nowrap">
                           <button
                             type="button"
-                            onClick={() => setSelectedApplication(app)}
+                            onClick={() => {
+                              setSelectedApplication(app);
+                              setDrawerTab('messages');
+                              setAdminNotes(app.notes || '');
+                            }}
+                            className="py-1.5 px-2.5 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer mr-2 inline-flex items-center gap-1.5"
+                            title="Open direct message channel"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-[#B5632F]" />
+                            <span className="hidden sm:inline">Message</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedApplication(app);
+                              setDrawerTab('details');
+                              setAdminNotes(app.notes || '');
+                            }}
                             className="py-1.5 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer"
                           >
                             View Application
@@ -950,8 +999,38 @@ create policy "Allow all delete" on public.applications for delete using (true);
                 </div>
               </div>
 
-              {/* Drawer Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Drawer Navigation Tabs: Dossier vs Messages */}
+              <div className="flex border-b border-[#2A453D] bg-[#0F2A24] px-6 gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDrawerTab('details')}
+                  className={`py-3 px-3 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer border-b-2 ${
+                    drawerTab === 'details'
+                      ? 'text-[#F4F1EA] border-[#D4895A]'
+                      : 'text-[#B9C4BE] border-transparent hover:text-white'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Application Dossier</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDrawerTab('messages')}
+                  className={`py-3 px-3 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer border-b-2 ${
+                    drawerTab === 'messages'
+                      ? 'text-[#F4F1EA] border-[#D4895A]'
+                      : 'text-[#B9C4BE] border-transparent hover:text-white'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#D4895A]" />
+                  <span>Messages &amp; Direct Contact</span>
+                </button>
+              </div>
+
+              {/* Drawer Body: Dossier Tab */}
+              {drawerTab === 'details' ? (
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Contact Section */}
                 <div className="card-hairline p-5 bg-white space-y-3">
                   <h3 className="font-serif text-base font-normal text-[#1A1A18] border-b border-[#EFEBE1] pb-2">
@@ -1252,6 +1331,22 @@ create policy "Allow all delete" on public.applications for delete using (true);
                   </div>
                 </div>
               </div>
+              ) : (
+                /* Drawer Body: Messages & Direct Contact Tab */
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  <ApplicationChatThread
+                    applicationId={selectedApplication.id}
+                    applicantName={selectedApplication.full_name}
+                    applicantEmail={selectedApplication.email}
+                    recipientUserId={selectedApplication.user_id}
+                    currentUserRole="admin"
+                    currentUserEmail={user?.email || 'admin@vox-direct.com'}
+                    title={`Channel: ${selectedApplication.full_name}`}
+                    subtitle={`Direct line with applicant (${selectedApplication.email})`}
+                    minHeight="400px"
+                  />
+                </div>
+              )}
 
               {/* Drawer Footer */}
               <div className="p-4 bg-[#F8F5EE] border-t border-[#DDD7CB] flex items-center justify-between">
@@ -1264,13 +1359,35 @@ create policy "Allow all delete" on public.applications for delete using (true);
                   <span>Delete Record</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setSelectedApplication(null)}
-                  className="btn-secondary-light !py-2 !px-4 text-xs cursor-pointer"
-                >
-                  Close Drawer
-                </button>
+                <div className="flex items-center gap-2">
+                  {drawerTab === 'details' ? (
+                    <button
+                      type="button"
+                      onClick={() => setDrawerTab('messages')}
+                      className="py-1.5 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-[#B5632F]" />
+                      <span>Direct Message</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDrawerTab('details')}
+                      className="py-1.5 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-[#8A9A92]" />
+                      <span>Back to Dossier</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedApplication(null)}
+                    className="btn-secondary-light !py-2 !px-4 text-xs cursor-pointer"
+                  >
+                    Close Drawer
+                  </button>
+                </div>
               </div>
             </div>
           </div>

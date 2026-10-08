@@ -50,6 +50,19 @@ export interface ApplicationRecord {
   updated_at?: string;
 }
 
+export type MessageSenderRole = 'admin' | 'applicant';
+
+export interface MessageRecord {
+  id: string;
+  application_id: string;
+  recipient_user_id?: string | null;
+  sender_email: string;
+  sender_role: MessageSenderRole;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export type RoleNeeded = 'setter' | 'closer' | 'both';
 
 export interface OfferOwnerSubmission {

@@ -37,6 +37,27 @@
  *    CREATE POLICY "Allow all read" ON public.applications FOR SELECT USING (true);
  *    CREATE POLICY "Allow all update" ON public.applications FOR UPDATE USING (true) WITH CHECK (true);
  *    CREATE POLICY "Allow all delete" ON public.applications FOR DELETE USING (true);
+ * 
+ *    -- Messages Table (Bi-directional Messaging)
+ *    CREATE TABLE IF NOT EXISTS public.messages (
+ *      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+ *      application_id UUID NOT NULL,
+ *      recipient_user_id TEXT,
+ *      sender_email TEXT NOT NULL,
+ *      sender_role TEXT NOT NULL CHECK (sender_role IN ('admin', 'applicant')),
+ *      content TEXT NOT NULL,
+ *      is_read BOOLEAN NOT NULL DEFAULT false,
+ *      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+ *    );
+ *    ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ *    DROP POLICY IF EXISTS "Allow public insert messages" ON public.messages;
+ *    DROP POLICY IF EXISTS "Allow all read messages" ON public.messages;
+ *    DROP POLICY IF EXISTS "Allow all update messages" ON public.messages;
+ *    DROP POLICY IF EXISTS "Allow all delete messages" ON public.messages;
+ *    CREATE POLICY "Allow public insert messages" ON public.messages FOR INSERT WITH CHECK (true);
+ *    CREATE POLICY "Allow all read messages" ON public.messages FOR SELECT USING (true);
+ *    CREATE POLICY "Allow all update messages" ON public.messages FOR UPDATE USING (true) WITH CHECK (true);
+ *    CREATE POLICY "Allow all delete messages" ON public.messages FOR DELETE USING (true);
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';

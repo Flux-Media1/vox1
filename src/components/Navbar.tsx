@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Menu, X, LogOut, User, LayoutDashboard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Menu, X, LogOut, User, LayoutDashboard, MessageSquare } from 'lucide-react';
 import { PageId } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { messagesService } from '../services/messagesService';
 
 interface NavbarProps {
   currentPage: PageId;
@@ -10,7 +11,28 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const { user, isAdmin, signOut } = useAuth();
+
+  useEffect(() => {
+    const updateCount = () => {
+      if (user) {
+        const count = messagesService.getUnreadCountForRecipient(
+          user.id || user.email,
+          isAdmin ? 'admin' : 'applicant'
+        );
+        setUnreadCount(count);
+      } else {
+        setUnreadCount(0);
+      }
+    };
+
+    updateCount();
+    window.addEventListener('vox_direct_messages_updated', updateCount);
+    return () => {
+      window.removeEventListener('vox_direct_messages_updated', updateCount);
+    };
+  }, [user, isAdmin]);
 
   const navLinks: { id: PageId; label: string }[] = [
     { id: 'home', label: 'Home' },
@@ -67,7 +89,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
                     : 'text-[#4A4A44] hover:text-[#B5632F]'
                 }`}
               >
-                {link.label}
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{link.label}</span>
+                  {link.id === 'dashboard' && unreadCount > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-[#B5632F] inline-block" title={`${unreadCount} unread messages`} />
+                  )}
+                </span>
                 {isActive && (
                   <span
                     aria-hidden="true"
@@ -96,6 +123,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate }) => {
                 <span className="text-[10px] uppercase font-bold text-[#B5632F] bg-[#FAF3EE] px-1 py-0.5 rounded border border-[#B5632F]/20">
                   {user.role === 'owner' ? 'Owner' : 'Candidate'}
                 </span>
+                {unreadCount > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-[#B5632F] px-1.5 py-0.5 rounded shadow-sm" title={`${unreadCount} unread message(s)`}>
+                    <MessageSquare className="w-2.5 h-2.5" />
+                    <span>{unreadCount}</span>
+                  </span>
+                )}
               </button>
 
               <button

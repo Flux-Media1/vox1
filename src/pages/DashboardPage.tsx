@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { PageId, UserRole, ApplicationRecord, ApplicationStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { applicationsService } from '../services/applicationsService';
+import { messagesService } from '../services/messagesService';
+import { ApplicationChatThread } from '../components/ApplicationChatThread';
 import { 
   Building2, 
   Target, 
@@ -14,7 +16,8 @@ import {
   AlertCircle,
   ExternalLink,
   Shield,
-  RefreshCw
+  RefreshCw,
+  MessageSquare
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -24,12 +27,37 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const { user, isAdmin, signOut, updateUserProfile } = useAuth();
   const [userApplications, setUserApplications] = useState<ApplicationRecord[]>([]);
+  const [activeChatAppId, setActiveChatAppId] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const refreshUnreadCount = () => {
+    if (user) {
+      const count = messagesService.getUnreadCountForRecipient(
+        user.id || user.email,
+        'applicant'
+      );
+      setUnreadCount(count);
+    }
+  };
 
   useEffect(() => {
     if (user) {
       const records = applicationsService.getUserApplications(user.id || user.email);
       setUserApplications(records);
+      if (records.length > 0) {
+        setActiveChatAppId(records[0].id);
+      }
+      refreshUnreadCount();
     }
+
+    const handleMessagesUpdate = () => {
+      refreshUnreadCount();
+    };
+
+    window.addEventListener('vox_direct_messages_updated', handleMessagesUpdate);
+    return () => {
+      window.removeEventListener('vox_direct_messages_updated', handleMessagesUpdate);
+    };
   }, [user]);
 
   if (!user) {
@@ -105,7 +133,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('dashboard-messages-section');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="py-2.5 px-3.5 rounded-[4px] text-xs bg-[#B5632F] text-white hover:bg-[#9A4E20] border border-[#D4895A]/40 font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{unreadCount} New Message{unreadCount > 1 ? 's' : ''}</span>
+                </button>
+              )}
+
               {isAdmin && (
                 <button
                   type="button"
@@ -275,8 +317,97 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                             </>
                           )}
                         </div>
+
+                        {/* Quick Message Action */}
+                        <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5E0D6]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveChatAppId(app.id);
+                              const el = document.getElementById('dashboard-messages-section');
+                              el?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="btn-secondary-light !py-1.5 !px-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-[#B5632F]" />
+                            <span>Message Placement Team</span>
+                          </button>
+                          <span className="text-[11px] font-mono text-[#8A9A92]">Record ID: {app.id.substring(0, 8)}...</span>
+                        </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Messages from Vox Direct Placement Desk Section */}
+              <div
+                id="dashboard-messages-section"
+                className="card-hairline p-7 sm:p-8 bg-white border-[#DDD7CB] space-y-5"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#EFEBE1] pb-4">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#B5632F] mb-1">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Direct Correspondence</span>
+                    </div>
+                    <h2 className="font-serif text-2xl font-normal text-[#1A1A18]">
+                      Messages from Vox Direct
+                    </h2>
+                    <p className="text-xs text-[#7A7A72] mt-0.5">
+                      Direct channel with our admissions directors regarding your placement status, requirements, and interviews.
+                    </p>
+                  </div>
+
+                  {unreadCount > 0 && (
+                    <span className="self-start sm:self-auto px-2.5 py-1 text-xs font-bold bg-[#B5632F] text-white rounded-[4px] shadow-sm">
+                      {unreadCount} Unread
+                    </span>
+                  )}
+                </div>
+
+                {userApplications.length === 0 ? (
+                  <div className="p-6 bg-[#FAF8F4] border border-[#DDD7CB] rounded-[4px] text-center space-y-2">
+                    <p className="font-serif text-sm text-[#1A1A18]">Direct Messaging Inactive</p>
+                    <p className="text-xs text-[#7A7A72] max-w-md mx-auto leading-relaxed">
+                      Submit an Offer Intake or Candidate Placement form above to initiate direct messaging with our placement directors.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userApplications.length > 1 && (
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                        <span className="text-xs text-[#7A7A72] shrink-0 font-medium">Select Application:</span>
+                        {userApplications.map((app) => (
+                          <button
+                            key={app.id}
+                            type="button"
+                            onClick={() => setActiveChatAppId(app.id)}
+                            className={`py-1 px-2.5 rounded-[4px] text-xs font-medium border transition-colors cursor-pointer ${
+                              activeChatAppId === app.id
+                                ? 'bg-[#0F2A24] text-[#F4F1EA] border-[#0F2A24]'
+                                : 'bg-[#FAF8F4] text-[#4A4A44] border-[#DDD7CB] hover:bg-[#F1EDE5]'
+                            }`}
+                          >
+                            {app.role_type === 'offer_owner' ? 'Offer Intake' : 'Candidate'} · {app.id.substring(0, 8)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeChatAppId && (
+                      <ApplicationChatThread
+                        applicationId={activeChatAppId}
+                        applicantName={user.fullName || user.email}
+                        applicantEmail={user.email}
+                        recipientUserId="admin"
+                        currentUserRole="applicant"
+                        currentUserEmail={user.email}
+                        title="Placement Team Direct Channel"
+                        subtitle="Vox Direct Admissions & Placement Matching"
+                        minHeight="340px"
+                      />
+                    )}
                   </div>
                 )}
               </div>
