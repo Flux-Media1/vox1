@@ -54,6 +54,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { AdminPortalPage } from './pages/AdminPortalPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { Analytics } from '@vercel/analytics/react';
 
 const PAGE_META: Record<PageId, { title: string; description: string; path: string }> = {
   home: {
@@ -313,6 +314,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MainApp />
+      <Analytics />
     </AuthProvider>
   );
 }
