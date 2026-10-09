@@ -76,7 +76,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, redirectTarg
   return (
     <div className="bg-[#FAF8F4] min-h-[calc(100vh-80px)] py-12 sm:py-16">
       <div className="mx-auto max-w-lg px-4 sm:px-6">
-        <div className="card-hairline p-7 sm:p-9 bg-white">
+        <div className="card-hairline p-5 sm:p-9 bg-white">
           {/* Header */}
           <div className="border-b border-[#DDD7CB] pb-5 mb-6 text-center">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#B5632F] mb-2">

@@ -142,9 +142,9 @@ export const OfferOwnersPage: React.FC<OfferOwnersPageProps> = ({ onNavigateToSe
       </section>
 
       {/* Main Content: Form */}
-      <section className="py-20 md:py-24">
+      <section className="py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="card-hairline p-8 sm:p-12">
+          <div className="card-hairline p-5 sm:p-10 md:p-12">
             <div className="border-b border-[#DDD7CB] pb-6 mb-8">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#B5632F] mb-2">
                 <span className="w-4 h-px bg-[#B5632F]" aria-hidden="true" />

@@ -125,7 +125,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, redirectTarget
           </div>
         )}
 
-        <div className="card-hairline p-7 sm:p-9 bg-white">
+        <div className="card-hairline p-5 sm:p-9 bg-white">
           {/* Header */}
           <div className="border-b border-[#DDD7CB] pb-5 mb-6 text-center">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#B5632F] mb-2">

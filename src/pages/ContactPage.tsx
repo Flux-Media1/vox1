@@ -155,7 +155,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
             </div>
 
             {/* Contact Form */}
-            <div className="md:col-span-2 card-hairline p-8 sm:p-10">
+            <div className="md:col-span-2 card-hairline p-5 sm:p-10">
               <h2 className="font-serif text-2xl font-normal text-[#1A1A18] mb-1">
                 Send a Message
               </h2>

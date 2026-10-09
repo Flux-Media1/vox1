@@ -265,7 +265,7 @@ export const Component: React.FC<ComponentProps> = ({
                   mode === "dark"
                     ? "bg-black border-zinc-700 text-white"
                     : "bg-white border-slate-200 text-slate-900 shadow-2xs"
-                } border w-80 h-auto rounded-2xl p-5 relative transition-all ${
+                } border w-full max-w-[340px] sm:w-80 h-auto rounded-2xl p-5 relative transition-all ${
                   !showAll && index >= 6 ? "testimonial-partially-visible" : ""
                 }`}
               >

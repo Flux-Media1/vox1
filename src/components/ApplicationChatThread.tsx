@@ -422,7 +422,7 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
 
                 {/* Message Bubble (Strictly 4px flat radius, zero rounded pill discipline) */}
                 <div
-                  className={`max-w-[85%] sm:max-w-[75%] p-3.5 text-xs rounded-[4px] leading-relaxed whitespace-pre-wrap break-words border ${
+                  className={`max-w-[90%] sm:max-w-[75%] p-3 sm:p-3.5 text-xs sm:text-xs rounded-[4px] leading-relaxed whitespace-pre-wrap break-words border ${
                     isAdminSender
                       ? 'bg-[#0F2A24] text-[#F4F1EA] border-[#2A453D] shadow-sm'
                       : 'bg-white text-[#1A1A18] border-[#DDD7CB] shadow-sm'
@@ -459,7 +459,7 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
       {/* Input Area */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 bg-white border-t border-[#DDD7CB] flex flex-col sm:flex-row gap-2"
+        className="p-2.5 sm:p-3 bg-white border-t border-[#DDD7CB] flex flex-col sm:flex-row gap-2"
       >
         <textarea
           ref={textareaRef}
@@ -469,16 +469,16 @@ export const ApplicationChatThread: React.FC<ApplicationChatThreadProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={
             currentUserRole === 'admin'
-              ? `Write a direct message to ${applicantName}... (Press Enter to send)`
-              : 'Write a response or query to Vox Direct placement team... (Press Enter to send)'
+              ? `Write a direct message to ${applicantName}...`
+              : 'Write a response or query to Vox Direct placement team...'
           }
-          className="flex-1 p-2.5 text-xs bg-[#FAF8F4] border border-[#DDD7CB] rounded-[4px] text-[#1A1A18] focus:outline-none focus:border-[#B5632F] focus:ring-1 focus:ring-[#B5632F] resize-none"
+          className="flex-1 p-2.5 text-sm sm:text-xs bg-[#FAF8F4] border border-[#DDD7CB] rounded-[4px] text-[#1A1A18] focus:outline-none focus:border-[#B5632F] focus:ring-1 focus:ring-[#B5632F] resize-none min-h-[44px]"
         />
 
         <button
           type="submit"
           disabled={!inputText.trim() || isSending}
-          className="py-2.5 px-4 text-xs font-semibold bg-[#B5632F] hover:bg-[#9A4E20] disabled:opacity-50 text-white rounded-[4px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+          className="min-h-[44px] py-2.5 px-4 text-xs font-semibold bg-[#B5632F] hover:bg-[#9A4E20] disabled:opacity-50 text-white rounded-[4px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
         >
           {isSending ? (
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />

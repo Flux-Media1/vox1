@@ -805,11 +805,11 @@ end $$;`;
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#DDD7CB] pb-4">
             {/* Interactive Tabbed filter (zero-pill discipline: segmented control with flat 4px buttons) */}
-            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#F1EDE5] rounded-[4px] border border-[#DDD7CB]">
+            <div className="flex overflow-x-auto no-scrollbar items-center gap-1.5 p-1 bg-[#F1EDE5] rounded-[4px] border border-[#DDD7CB] w-full md:w-auto shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab('all')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer whitespace-nowrap ${
                   activeTab === 'all'
                     ? 'bg-[#0F2A24] text-[#F4F1EA]'
                     : 'text-[#4A4A44] hover:text-[#1A1A18] hover:bg-[#E5DFD4]'
@@ -820,7 +820,7 @@ end $$;`;
               <button
                 type="button"
                 onClick={() => setActiveTab('offer_owners')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer whitespace-nowrap ${
                   activeTab === 'offer_owners'
                     ? 'bg-[#0F2A24] text-[#F4F1EA]'
                     : 'text-[#4A4A44] hover:text-[#1A1A18] hover:bg-[#E5DFD4]'
@@ -831,7 +831,7 @@ end $$;`;
               <button
                 type="button"
                 onClick={() => setActiveTab('candidates')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer whitespace-nowrap ${
                   activeTab === 'candidates'
                     ? 'bg-[#0F2A24] text-[#F4F1EA]'
                     : 'text-[#4A4A44] hover:text-[#1A1A18] hover:bg-[#E5DFD4]'
@@ -842,7 +842,7 @@ end $$;`;
               <button
                 type="button"
                 onClick={() => setActiveTab('archived')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-colors cursor-pointer whitespace-nowrap ${
                   activeTab === 'archived'
                     ? 'bg-[#0F2A24] text-[#F4F1EA]'
                     : 'text-[#4A4A44] hover:text-[#1A1A18] hover:bg-[#E5DFD4]'
@@ -927,8 +927,146 @@ end $$;`;
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <>
+              {/* Mobile Application Cards (< md screens) */}
+              <div className="block md:hidden divide-y divide-[#DDD7CB]">
+                {filteredApplications.map((app) => {
+                  const isOwner = app.role_type === 'offer_owner';
+                  const dateObj = new Date(app.created_at);
+                  const formattedDate = dateObj.toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  });
+                  const formattedTime = dateObj.toLocaleTimeString('en-GB', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+
+                  return (
+                    <div key={`mobile-${app.id}`} className="p-4 sm:p-5 space-y-3.5 bg-white">
+                      {/* Top Bar: Date, Role Badge & Status Dropdown */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {isOwner ? (
+                              <span className="inline-block px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#FAF3EE] text-[#9A4E20] border border-[#B5632F]/30 uppercase tracking-wider">
+                                Offer Owner
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#E8EFEA] text-[#0F2A24] border border-[#2A453D]/30 uppercase tracking-wider">
+                                Candidate / Rep
+                              </span>
+                            )}
+                            <span className="text-[11px] text-[#8A9A92]">
+                              {formattedDate} {formattedTime}
+                            </span>
+                          </div>
+                          <h4 className="font-serif text-lg font-medium text-[#1A1A18] mt-1">
+                            {app.full_name}
+                          </h4>
+                          {isOwner && app.details?.company && (
+                            <p className="text-xs text-[#7A7A72] font-medium">
+                              Company: {app.details.company}
+                            </p>
+                          )}
+                          {!isOwner && app.details?.role && (
+                            <p className="text-xs text-[#7A7A72] capitalize">
+                              Role: {app.details.role}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Status dropdown */}
+                        <div className="shrink-0">
+                          <select
+                            value={app.status}
+                            onChange={(e) => handleStatusChange(app.id, e.target.value as ApplicationStatus)}
+                            className={`py-1.5 px-2.5 rounded-[4px] text-xs font-semibold cursor-pointer focus:outline-none transition-colors border ${getStatusBadgeClass(
+                              app.status
+                            )}`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="under_review">Under Review</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="archived">Archived</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Contact Info */}
+                      <div className="p-2.5 bg-[#FAF8F4] border border-[#E5E0D6] rounded-[4px] space-y-1 text-xs">
+                        <a
+                          href={`mailto:${app.email}`}
+                          className="text-[#1A1A18] hover:text-[#B5632F] font-mono flex items-center gap-1.5 truncate"
+                        >
+                          <Mail className="w-3.5 h-3.5 text-[#8A9A92] shrink-0" />
+                          <span className="truncate">{app.email}</span>
+                        </a>
+                        {app.phone && (
+                          <a
+                            href={`tel:${app.phone}`}
+                            className="text-[#4A4A44] hover:text-[#1A1A18] flex items-center gap-1.5"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-[#8A9A92] shrink-0" />
+                            <span>{app.phone}</span>
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Criteria Snippet */}
+                      <div className="text-xs text-[#4A4A44]">
+                        {isOwner ? (
+                          <div>
+                            <span className="text-[#8A9A92] uppercase tracking-wider text-[10px] block font-semibold">Compensation &amp; Volume</span>
+                            <div className="font-medium text-[#1A1A18] line-clamp-1">{app.details?.commissionStructure || 'Model specified'}</div>
+                            <div className="text-[#7A7A72] line-clamp-1">{app.details?.expectedVolume || 'Volume specified'}</div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-[#8A9A92] uppercase tracking-wider text-[10px] block font-semibold">Niche &amp; Location</span>
+                            <div className="font-medium text-[#1A1A18] line-clamp-1">{app.details?.nichesWorkedIn || 'Sales track record'}</div>
+                            <div className="text-[#7A7A72] line-clamp-1">{app.details?.locationAndTimezone || 'UK & Global'}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Buttons: Message & View Dossier */}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#EFEBE1]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedApplication(app);
+                            setDrawerTab('messages');
+                            setAdminNotes(app.notes || '');
+                          }}
+                          className="btn-secondary-light !py-2.5 !px-3 text-xs flex items-center justify-center gap-1.5 min-h-[42px] cursor-pointer"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-[#B5632F]" />
+                          <span>Message</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedApplication(app);
+                            setDrawerTab('details');
+                            setAdminNotes(app.notes || '');
+                          }}
+                          className="btn-primary-light !py-2.5 !px-3 text-xs flex items-center justify-center gap-1.5 min-h-[42px] cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-[#D4895A]" />
+                          <span>View Dossier</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Data Table (hidden on mobile, visible on md+) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-[#DDD7CB] bg-[#F8F5EE] text-[#4A4A44] font-semibold">
                     <th scope="col" className="py-3.5 px-4 sm:px-6">Date Submitted</th>
@@ -1089,6 +1227,7 @@ end $$;`;
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>
@@ -1105,16 +1244,16 @@ end $$;`;
           {/* Backdrop */}
           <div
             onClick={() => setSelectedApplication(null)}
-            className="absolute inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity animate-in fade-in"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity animate-in fade-in"
           />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
             <div className="w-screen max-w-xl bg-[#FAF8F4] border-l border-[#DDD7CB] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
               {/* Drawer Top Header (Ink Green #0F2A24) */}
-              <div className="bg-[#0F2A24] text-[#F4F1EA] p-6 border-b border-[#2A453D]">
+              <div className="bg-[#0F2A24] text-[#F4F1EA] p-4 sm:p-6 border-b border-[#2A453D]">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {selectedApplication.role_type === 'offer_owner' ? (
                         <span className="px-2 py-0.5 rounded-[4px] text-[11px] font-semibold bg-[#FAF3EE] text-[#9A4E20] border border-[#B5632F]/40 uppercase tracking-wider">
                           Offer Owner Application
@@ -1125,11 +1264,11 @@ end $$;`;
                         </span>
                       )}
                       <span className="text-xs text-[#B9C4BE]">
-                        ID: <span className="font-mono text-[#F4F1EA]">{selectedApplication.id}</span>
+                        ID: <span className="font-mono text-[#F4F1EA]">{selectedApplication.id.substring(0, 12)}...</span>
                       </span>
                     </div>
 
-                    <h2 className="font-serif text-2xl font-normal text-[#F4F1EA]">
+                    <h2 className="font-serif text-xl sm:text-2xl font-normal text-[#F4F1EA]">
                       {selectedApplication.full_name}
                     </h2>
                     <p className="text-xs text-[#B9C4BE] mt-1">
@@ -1147,14 +1286,15 @@ end $$;`;
                   <button
                     type="button"
                     onClick={() => setSelectedApplication(null)}
-                    className="p-1.5 rounded-[4px] text-[#B9C4BE] hover:text-white hover:bg-[#163B33] transition-colors cursor-pointer"
+                    aria-label="Close drawer"
+                    className="p-2 rounded-[4px] text-[#B9C4BE] hover:text-white hover:bg-[#163B33] transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Status Switcher in Header */}
-                <div className="mt-4 pt-4 border-t border-[#2A453D] flex items-center justify-between">
+                <div className="mt-4 pt-3.5 border-t border-[#2A453D] flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs text-[#B9C4BE]">Placement Review Status:</span>
                   <div className="flex items-center gap-2">
                     <select
@@ -1162,7 +1302,7 @@ end $$;`;
                       onChange={(e) =>
                         handleStatusChange(selectedApplication.id, e.target.value as ApplicationStatus)
                       }
-                      className={`py-1 px-3 rounded-[4px] text-xs font-semibold cursor-pointer ${getStatusBadgeClass(
+                      className={`py-1.5 px-3 rounded-[4px] text-xs font-semibold cursor-pointer ${getStatusBadgeClass(
                         selectedApplication.status
                       )}`}
                     >
@@ -1177,11 +1317,11 @@ end $$;`;
               </div>
 
               {/* Drawer Navigation Tabs: Dossier vs Messages */}
-              <div className="flex border-b border-[#2A453D] bg-[#0F2A24] px-6 gap-2 shrink-0">
+              <div className="flex border-b border-[#2A453D] bg-[#0F2A24] px-4 sm:px-6 gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setDrawerTab('details')}
-                  className={`py-3 px-3 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer border-b-2 ${
+                  className={`py-3 px-3 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer border-b-2 min-h-[44px] ${
                     drawerTab === 'details'
                       ? 'text-[#F4F1EA] border-[#D4895A]'
                       : 'text-[#B9C4BE] border-transparent hover:text-white'
@@ -1194,7 +1334,7 @@ end $$;`;
                 <button
                   type="button"
                   onClick={() => setDrawerTab('messages')}
-                  className={`py-3 px-3 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer border-b-2 ${
+                  className={`py-3 px-3 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer border-b-2 min-h-[44px] ${
                     drawerTab === 'messages'
                       ? 'text-[#F4F1EA] border-[#D4895A]'
                       : 'text-[#B9C4BE] border-transparent hover:text-white'
@@ -1207,7 +1347,7 @@ end $$;`;
 
               {/* Drawer Body: Dossier Tab */}
               {drawerTab === 'details' ? (
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
                 {/* Contact Section */}
                 <div className="card-hairline p-5 bg-white space-y-3">
                   <h3 className="font-serif text-base font-normal text-[#1A1A18] border-b border-[#EFEBE1] pb-2">
@@ -1510,7 +1650,7 @@ end $$;`;
               </div>
               ) : (
                 /* Drawer Body: Messages & Direct Contact Tab */
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4">
                   <ApplicationChatThread
                     application={selectedApplication}
                     applicationId={selectedApplication.id}
@@ -1521,17 +1661,17 @@ end $$;`;
                     currentUserEmail={user?.email || 'admin@vox-direct.com'}
                     title={`Channel: ${selectedApplication.full_name}`}
                     subtitle={`Direct line with applicant (${selectedApplication.email})`}
-                    minHeight="400px"
+                    minHeight="340px"
                   />
                 </div>
               )}
 
               {/* Drawer Footer */}
-              <div className="p-4 bg-[#F8F5EE] border-t border-[#DDD7CB] flex items-center justify-between">
+              <div className="p-3.5 sm:p-4 bg-[#F8F5EE] border-t border-[#DDD7CB] flex flex-col sm:flex-row gap-2.5 sm:gap-2 items-stretch sm:items-center justify-between">
                 <button
                   type="button"
                   onClick={() => handleDeleteApplication(selectedApplication.id)}
-                  className="py-1.5 px-3 text-xs text-[#991B1B] hover:bg-[#FEE2E2] rounded-[4px] border border-[#EF4444]/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="py-2 px-3 text-xs text-[#991B1B] hover:bg-[#FEE2E2] rounded-[4px] border border-[#EF4444]/30 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete Record</span>
@@ -1542,7 +1682,7 @@ end $$;`;
                     <button
                       type="button"
                       onClick={() => setDrawerTab('messages')}
-                      className="py-1.5 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="py-2 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer flex-1 sm:flex-none flex items-center justify-center gap-1.5 min-h-[40px]"
                     >
                       <MessageSquare className="w-3.5 h-3.5 text-[#B5632F]" />
                       <span>Direct Message</span>
@@ -1551,7 +1691,7 @@ end $$;`;
                     <button
                       type="button"
                       onClick={() => setDrawerTab('details')}
-                      className="py-1.5 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="py-2 px-3 rounded-[4px] bg-[#FAF8F4] hover:bg-[#F1EDE5] text-[#0F2A24] border border-[#DDD7CB] font-semibold text-xs transition-colors cursor-pointer flex-1 sm:flex-none flex items-center justify-center gap-1.5 min-h-[40px]"
                     >
                       <FileText className="w-3.5 h-3.5 text-[#8A9A92]" />
                       <span>Back to Dossier</span>
@@ -1561,7 +1701,7 @@ end $$;`;
                   <button
                     type="button"
                     onClick={() => setSelectedApplication(null)}
-                    className="btn-secondary-light !py-2 !px-4 text-xs cursor-pointer"
+                    className="btn-secondary-light !py-2 !px-4 text-xs cursor-pointer flex-1 sm:flex-none justify-center min-h-[40px]"
                   >
                     Close Drawer
                   </button>

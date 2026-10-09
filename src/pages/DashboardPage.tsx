@@ -262,26 +262,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   return (
     <div className="bg-[#FAF8F4] min-h-[calc(100vh-80px)] pb-20">
       {/* Editorial Header */}
-      <section className="bg-[#0F2A24] text-[#F4F1EA] py-12 sm:py-16 border-b border-[#2A453D]">
+      <section className="bg-[#0F2A24] text-[#F4F1EA] py-8 sm:py-14 border-b border-[#2A453D]">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
             <div>
               <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#D4895A] mb-2">
                 <span className="w-4 h-px bg-[#D4895A]" aria-hidden="true" />
                 <span>Client &amp; Candidate Portal</span>
               </div>
-              <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-normal tracking-tight text-[#F4F1EA]">
+              <h1 className="font-serif text-2xl sm:text-4xl md:text-5xl font-normal tracking-tight text-[#F4F1EA]">
                 {user.fullName ? `Welcome back, ${user.fullName}` : 'Welcome to Vox Direct'}
               </h1>
-              <p className="mt-2 text-sm sm:text-base text-[#B9C4BE] max-w-xl">
-                Signed in as <span className="text-[#F4F1EA] font-mono">{user.email}</span> ·{' '}
+              <p className="mt-2 text-xs sm:text-sm md:text-base text-[#B9C4BE] max-w-xl">
+                Signed in as <span className="text-[#F4F1EA] font-mono break-all">{user.email}</span> ·{' '}
                 <span className="text-[#D4895A] font-medium">
                   {isOwner ? 'Offer Owner Account' : 'Setter & Closer Candidate Account'}
                 </span>
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               {unreadCount > 0 && (
                 <button
                   type="button"
@@ -289,7 +289,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                     const el = document.getElementById('dashboard-messages-section');
                     el?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="py-2.5 px-3.5 rounded-[4px] text-xs bg-[#B5632F] text-white hover:bg-[#9A4E20] border border-[#D4895A]/40 font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+                  className="py-2.5 px-3.5 rounded-[4px] text-xs bg-[#B5632F] text-white hover:bg-[#9A4E20] border border-[#D4895A]/40 font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm flex-1 sm:flex-none min-h-[42px]"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>{unreadCount} New Message{unreadCount > 1 ? 's' : ''}</span>
@@ -300,7 +300,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => onNavigate('admin')}
-                  className="py-2.5 px-4 rounded-[4px] text-xs bg-[#B5632F] text-white hover:bg-[#9A4E20] border border-[#D4895A]/40 font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="py-2.5 px-3.5 sm:px-4 rounded-[4px] text-xs bg-[#B5632F] text-white hover:bg-[#9A4E20] border border-[#D4895A]/40 font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer flex-1 sm:flex-none min-h-[42px]"
                 >
                   <Shield className="w-3.5 h-3.5" />
                   <span>Admin Portal</span>
@@ -313,7 +313,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                   await signOut();
                   onNavigate('home');
                 }}
-                className="btn-secondary-dark !py-2.5 !px-4 text-xs flex items-center gap-2 cursor-pointer"
+                className="btn-secondary-dark !py-2.5 !px-3.5 sm:!px-4 text-xs flex items-center justify-center gap-2 cursor-pointer flex-1 sm:flex-none min-h-[42px]"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Log Out</span>
